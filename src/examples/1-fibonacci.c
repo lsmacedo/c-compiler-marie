@@ -6,6 +6,7 @@ int main() {
   int y = iterative(input);
   print(x);
   print(y);
+  print(x == y);
 }
 
 int recursive(int n) {
