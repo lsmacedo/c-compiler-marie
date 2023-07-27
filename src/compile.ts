@@ -33,6 +33,7 @@ const expressions = [] as Expression[];
 const scopes = [] as string[];
 const localVariables = {} as { [functionName: string]: string[] };
 const currentFunctionName = () => scopes[0]?.split("#")[0];
+let conditionCount = 0;
 let blockCount = 0;
 
 const marieCodeBuilder = new Builder();
@@ -64,9 +65,10 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
   // Set params for function call
   params.forEach((param, index) => {
     const variableName = functionDefinition.params[index].name;
+    const solvedValue = solveValue(param);
     marieCodeBuilder
       .comment(`Set param ${variableName}`)
-      .copy(solveValue(param), { indirect: $callStackPointer })
+      .copy(solvedValue, { indirect: $callStackPointer })
       .copy({ direct: $callStackPointer }, { direct: variableName })
       .increment({ direct: $callStackPointer });
   });
@@ -95,6 +97,7 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
           .add({ literal: 1 })
           .store({ direct: $callStackPointer });
       });
+      marieCodeBuilder.comment("Resuming function execution");
     }
   }
 };
@@ -133,15 +136,10 @@ const solveValue = (value: Value): VariableType => {
         if (operator === "==" || operator === "!=") {
           return "equal";
         }
-        if (operator === ">" || operator === ">=") {
-          return "greaterThan";
-        }
-        throw new Error("Invalid oeprator");
+        return "greaterThan";
       })();
       const then = operator !== "!=" ? 1 : 0;
       const otherwise = operator !== "!=" ? 0 : 1;
-
-      marieCodeBuilder.copy(b, { direct: tmp });
 
       marieCodeBuilder.copy(b, { direct: tmp }).load(a);
       if (operator === ">=") {
@@ -151,17 +149,16 @@ const solveValue = (value: Value): VariableType => {
         marieCodeBuilder.subt({ literal: 1 });
       }
 
-      const expressionId = `#ex${Math.floor(Math.random() * 1000)}`;
-
+      const conditionId = `#condition${conditionCount++}`;
       marieCodeBuilder
         .subt({ direct: tmp })
         .skipIfCondition(condition)
-        .jump(`${expressionId}else`)
+        .jump(`${conditionId}else`)
         .copy({ literal: then }, { direct: opResult })
-        .jump(`${expressionId}finally`)
-        .label(`${expressionId}else`)
+        .jump(`${conditionId}finally`)
+        .label(`${conditionId}else`)
         .copy({ literal: otherwise }, { direct: opResult })
-        .label(`${expressionId}finally`)
+        .label(`${conditionId}finally`)
         .clear();
     }
     return { direct: opResult };
@@ -233,9 +230,10 @@ export const compileForMarieAssemblyLanguage = (
             .increment({ direct: $callStackPointer });
         }
         if (value) {
+          const solvedValue = solveValue(value);
           marieCodeBuilder
             .comment(`Assign value to variable ${name}`)
-            .copy(solveValue(value), { indirect: name });
+            .copy(solvedValue, { indirect: name });
         }
         break;
       }
@@ -262,7 +260,7 @@ export const compileForMarieAssemblyLanguage = (
           .load(solveValue(valueObject))
           .subt({ literal: 1 })
           .skipIfCondition("equal")
-          .jump(`#${blockCount}finally`);
+          .jump(`#block${blockCount}finally`);
 
         blockCount++;
         break;
@@ -274,7 +272,7 @@ export const compileForMarieAssemblyLanguage = (
           if (scopes[0].includes("#while")) {
             marieCodeBuilder.jump(`#block${conditionIndex}`);
           }
-          marieCodeBuilder.label(`#${conditionIndex}finally`).clear();
+          marieCodeBuilder.label(`#block${conditionIndex}finally`).clear();
         } else {
           marieCodeBuilder.jnS("popFromCallStack");
         }
