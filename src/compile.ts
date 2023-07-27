@@ -13,16 +13,14 @@ const {
   $callStackPointer,
   $callStackAllocation,
   $callerListPointer,
-  $callerAddress,
   opResult,
   fnReturn,
   tmp,
 } = {
   // Call stack management
   $callStackPointer: "$CallStackPointer", // Stores the address of the current item of the call stack
-  $callStackAllocation: "$CallStackAllocation", // Stores the addresses of the start addresses of the stacks
-  $callerListPointer: "$CallerListPointer", // Stores the address of the current item of the caller list
-  $callerAddress: "$CallerAddress", // Stores the address of the caller to jump to
+  $callStackAllocation: "$CallStackAllocation", // Stores the addresses of the start addresses of the stack frames
+  $callerListPointer: "$CallerListPointer", // Stores the address of the current item of the caller list (a list of addresses to return after each function call)
   // Operations
   opResult: "OpResult", // Stores the result of the last operation
   fnReturn: "FnReturn", // Stores the return of the last function call
@@ -174,7 +172,6 @@ export const compileForMarieAssemblyLanguage = (
     $CallStackPointer: 1000, // Stores the address of the current item of the call stack
     $CallStackAllocation: 2000, // Stores the addresses of the start addresses of the stacks
     $CallerListPointer: 3000, // Stores the address of the current item of the caller list
-    $CallerAddress: 0, // Stores the address of the caller to jump to
     // Operations
     OpResult: 0, // Stores the result of the last operation
     FnReturn: 0, // Stores the return of the last function call
@@ -197,10 +194,10 @@ export const compileForMarieAssemblyLanguage = (
     .procedure("popFromCallStack")
     .decrement({ direct: $callStackAllocation })
     .copy({ indirect: $callStackAllocation }, { direct: $callStackPointer })
-    .copy({ indirect: $callerListPointer }, { direct: $callerAddress })
+    .copy({ indirect: $callerListPointer }, { direct: tmp })
     .decrement({ direct: $callerListPointer })
     .skipIfEqual({ indirect: $callerListPointer }, { literal: 0 })
-    .jumpI($callerAddress)
+    .jumpI(tmp)
     .halt();
 
   expressions.push(...parsedExpressions);
