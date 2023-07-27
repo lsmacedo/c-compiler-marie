@@ -167,11 +167,10 @@ export const parseCode = (code: string): Expression[] => {
         ([_, { regex }]) => regex.test(line)
       )![0] as keyof typeof expressionTypes;
       const matches = line.match(expressionTypes[expressionType].regex);
-      const response = {
+      return {
         expressionType,
         ...expressionTypes[expressionType].parser(matches!),
-      } as Expression;
-      return response;
+      };
     })
     .filter(({ expressionType: opType }) => opType);
 };
