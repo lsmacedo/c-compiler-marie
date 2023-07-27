@@ -67,6 +67,24 @@ const expressionTypes = {
       return { type, name, params };
     },
   },
+  // Function call
+  functionCall: {
+    regex: /^\s*(?<name>[^\s]+?)\s*\(\s*(?<params>.+?)?\s*\)\s*;?$/,
+    parser: (matches: RegExpMatchArray): FunctionCall => {
+      const [_, name, paramsString] = matches;
+      let params: Value[] = [];
+      if (paramsString) {
+        params = paramsString
+          // Following regex is not yet bullet-proof and might fail with the
+          // string "x, y, func(x, y, func2(x, y), x, y)" because the comma
+          // after func2(x, y) is matched.
+          .split(/(?<!.+?\([^)]+),/g)
+          .map((param) => parseValue(param.trim()))
+          .filter((param) => param);
+      }
+      return { name, params };
+    },
+  },
   // Variable declaration, with or without a value assignment
   variableDeclaration: {
     regex:
@@ -97,24 +115,6 @@ const expressionTypes = {
     parser: (matches: string[]): Return => {
       const [_, valueString] = matches;
       return { value: parseValue(valueString) };
-    },
-  },
-  // Function call
-  functionCall: {
-    regex: /^\s*(?<name>[^\s]+?)\s*\(\s*(?<params>.+?)?\s*\)\s*;?$/,
-    parser: (matches: RegExpMatchArray): FunctionCall => {
-      const [_, name, paramsString] = matches;
-      let params: Value[] = [];
-      if (paramsString) {
-        params = paramsString
-          // Following regex is not yet bullet-proof and might fail with the
-          // string "x, y, func(x, y, func2(x, y), x, y)" because the comma
-          // after func2(x, y) is matched.
-          .split(/(?<!.+?\([^)]+),/g)
-          .map((param) => parseValue(param.trim()))
-          .filter((param) => param);
-      }
-      return { name, params };
     },
   },
   // A block, which may or may not follow an If statement or a loop
