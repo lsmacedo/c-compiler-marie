@@ -16,9 +16,7 @@ int recursive(int n) {
   if (n == 1) {
     return 1;
   }
-  int a = recursive(n-1);
-  int b = recursive(n-2);
-  return a + b;
+  return recursive(n-1) + recursive(n-2);
 }
 
 int iterative(int n) {

@@ -69,7 +69,7 @@ const expressionTypes = {
   },
   // Function call
   functionCall: {
-    regex: /^\s*(?<name>[^\s]+?)\s*\(\s*(?<params>.+?)?\s*\)\s*;?$/,
+    regex: /^\s*(?<name>[^\s]+?)\s*\(\s*(?<params>[^)]+?)?\s*\)\s*;?$/,
     parser: (matches: RegExpMatchArray): FunctionCall => {
       const [_, name, paramsString] = matches;
       let params: Value[] = [];
@@ -128,7 +128,7 @@ const expressionTypes = {
   // Arithmetic expression
   arithmetic: {
     regex:
-      /^\s*(?<firstOperand>.+)\s*(?<operator>[+\-\*\/])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s]+)\s*(?<operator>[+\-\*\/])\s*(?<secondOperand>.+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);
@@ -139,7 +139,7 @@ const expressionTypes = {
   // Relational expression
   relational: {
     regex:
-      /^\s*(?<firstOperand>.+)\s*(?<operator>\>=|\<=|==|!=|[><])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s]+)\s*(?<operator>\>=|\<=|==|!=|[><])\s*(?<secondOperand>.+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);

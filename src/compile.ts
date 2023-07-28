@@ -31,6 +31,7 @@ const expressions = [] as Expression[];
 const scopes = [] as string[];
 const localVariables = {} as { [functionName: string]: string[] };
 const currentFunctionName = () => scopes[0]?.split("#")[0];
+let fnReturnCount = 0;
 let conditionCount = 0;
 let blockCount = 0;
 
@@ -100,6 +101,19 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
   }
 };
 
+const declareVariable = (name: string) => {
+  if (!localVariables[currentFunctionName()]) {
+    localVariables[currentFunctionName()] = [];
+  }
+  if (!localVariables[currentFunctionName()].includes(name)) {
+    localVariables[currentFunctionName()].push(name);
+    marieCodeBuilder
+      .comment(`Declare variable ${name}`)
+      .copy({ direct: $callStackPointer }, { direct: name })
+      .increment({ direct: $callStackPointer });
+  }
+};
+
 const solveValue = (value: Value): VariableType => {
   if (value.variable !== undefined) {
     return { indirect: value.variable };
@@ -110,7 +124,10 @@ const solveValue = (value: Value): VariableType => {
   if (value.functionCall !== undefined) {
     const { name, params } = value.functionCall;
     performFunctionCall(name, params);
-    return { direct: fnReturn };
+    const variableName = `${fnReturn}${fnReturnCount++}`;
+    declareVariable(variableName);
+    marieCodeBuilder.copy({ direct: fnReturn }, { indirect: variableName });
+    return { indirect: variableName };
   }
   if (value.expression !== undefined) {
     const { firstOperand, operator, secondOperand } = value.expression;
@@ -217,14 +234,7 @@ export const compileForMarieAssemblyLanguage = (
       case "variableAssignment": {
         const { type, name, value } = line as VariableAssignment;
         if (type) {
-          if (!localVariables[currentFunctionName()]) {
-            localVariables[currentFunctionName()] = [];
-          }
-          localVariables[currentFunctionName()].push(name);
-          marieCodeBuilder
-            .comment(`Declare variable ${name}`)
-            .copy({ direct: $callStackPointer }, { direct: name })
-            .increment({ direct: $callStackPointer });
+          declareVariable(name);
         }
         if (value) {
           const solvedValue = solveValue(value);
