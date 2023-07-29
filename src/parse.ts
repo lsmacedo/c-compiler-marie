@@ -35,7 +35,13 @@ const parseValue = (value: string): Value => {
     return { literal: value };
   }
   // Otherwise, consider it a variable (e.g. x)
-  return { variable: value.trim() };
+  const arrayRegex = /(?:\[)([^\]]+)(?:\])/;
+  const array = value.match(arrayRegex);
+  let arrayPosition: Value | undefined;
+  if (array) {
+    arrayPosition = parseValue(array[1]);
+  }
+  return { variable: value.replace(arrayRegex, "").trim(), arrayPosition };
 };
 
 /**
@@ -88,23 +94,30 @@ const expressionTypes = {
   // Variable declaration, with or without a value assignment
   variableDeclaration: {
     regex:
-      /^\s*(?<type>int)\s*(?<pointer>\*)?\s*(?<name>[^\s]+)\s*(?:\=\s*(?<value>.+))?\s*;\s*$/,
+      /^\s*(?<type>int)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*(?:\=\s*(?<value>.+))?\s*;\s*$/,
     parser: (matches: string[]): VariableAssignment => {
-      const [_, type, pointer, name, value] = matches;
+      const [_, type, pointer, name, array, value] = matches;
       return {
         type,
         name,
-        value: parseValue(value),
+        arraySize: array
+          ? parseValue(array.substring(1, array.length - 1))
+          : undefined,
+        value: value ? parseValue(value) : undefined,
       };
     },
   },
   // Assignment of a value to a variable
   variableAssignment: {
-    regex: /^\s*(?<name>[^\s]+)\s*\=\s*(?<value>.+)\s*;\s*$/,
+    regex:
+      /^\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*\=\s*(?<value>.+)\s*;\s*$/,
     parser: (matches: string[]): VariableAssignment => {
-      const [_, name, value] = matches;
+      const [_, name, array, value] = matches;
       return {
         name,
+        arrayPosition: array
+          ? parseValue(array.substring(1, array.length - 1))
+          : undefined,
         value: parseValue(value),
       };
     },

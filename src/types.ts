@@ -2,6 +2,7 @@ export type Value = {
   literal?: any;
   functionCall?: FunctionCall;
   variable?: string;
+  arrayPosition?: Value;
   isReference?: boolean;
   expression?: Operation;
 };
@@ -9,7 +10,9 @@ export type Value = {
 export type VariableAssignment = {
   type?: string;
   name: string;
-  value: Value;
+  arraySize?: Value;
+  arrayPosition?: Value;
+  value?: Value;
 };
 
 export type FunctionDefinition = {

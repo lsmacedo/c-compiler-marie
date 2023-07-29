@@ -128,7 +128,7 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
   }
 };
 
-const declareVariable = (name: string) => {
+const declareVariable = (name: string, arraySize?: Value) => {
   if (!localVariables[currentFunctionName()]) {
     localVariables[currentFunctionName()] = [];
   }
@@ -136,13 +136,29 @@ const declareVariable = (name: string) => {
     localVariables[currentFunctionName()].push(name);
     marieCodeBuilder
       .comment(`Declare variable ${name}`)
-      .copy({ direct: $StackPointer }, { direct: name })
-      .increment({ direct: $StackPointer });
+      .copy({ direct: $StackPointer }, { direct: name });
+    if (!arraySize) {
+      marieCodeBuilder.increment({ direct: $StackPointer });
+    } else {
+      const solvedArraySize = solveValue(arraySize);
+      marieCodeBuilder
+        .load({ direct: $StackPointer })
+        .add(solvedArraySize)
+        .store({ direct: $StackPointer });
+    }
   }
 };
 
 const solveValue = (value: Value): VariableType => {
   if (value.variable !== undefined) {
+    if (value.arrayPosition) {
+      const solvedArrayPosition = solveValue(value.arrayPosition);
+      marieCodeBuilder
+        .load({ direct: value.variable })
+        .add(solvedArrayPosition)
+        .store({ direct: Tmp });
+      return { indirect: Tmp };
+    }
     return { indirect: value.variable };
   }
   if (value.literal !== undefined) {
@@ -265,15 +281,24 @@ export const compileForMarieAssemblyLanguage = (
       }
       case "variableDeclaration":
       case "variableAssignment": {
-        const { type, name, value } = line as VariableAssignment;
+        const { type, name, arraySize, arrayPosition, value } =
+          line as VariableAssignment;
         if (type) {
-          declareVariable(name);
+          declareVariable(name, arraySize);
         }
         if (value) {
           const solvedValue = solveValue(value);
-          marieCodeBuilder
-            .comment(`Assign value to variable ${name}`)
-            .copy(solvedValue, { indirect: name });
+          marieCodeBuilder.comment(`Assign value to variable ${name}`);
+          if (arrayPosition) {
+            const solvedArrayPosition = solveValue(arrayPosition);
+            marieCodeBuilder
+              .load({ direct: name })
+              .add(solvedArrayPosition)
+              .store({ direct: Tmp })
+              .copy(solvedValue, { indirect: Tmp });
+          } else {
+            marieCodeBuilder.copy(solvedValue, { indirect: name });
+          }
         }
         break;
       }
