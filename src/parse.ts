@@ -41,7 +41,17 @@ const parseValue = (value: string): Value => {
   if (array) {
     arrayPosition = parseValue(array[1]);
   }
-  return { variable: value.replace(arrayRegex, "").trim(), arrayPosition };
+  const addressOperation = value.trim().startsWith("&");
+  const pointerOperation = value.trim().startsWith("*");
+  return {
+    variable: value
+      .replace(arrayRegex, "")
+      .replace(/[\*\&]/g, "")
+      .trim(),
+    addressOperation,
+    pointerOperation,
+    arrayPosition,
+  };
 };
 
 /**
@@ -145,7 +155,7 @@ const expressionTypes = {
   // Arithmetic expression
   arithmetic: {
     regex:
-      /^\s*(?<firstOperand>[^\s]+)\s*(?<operator>[+\-\*\/])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s]+)\s*(?<operator>[+\-])\s*(?<secondOperand>.+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);

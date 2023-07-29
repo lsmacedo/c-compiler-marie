@@ -44,7 +44,10 @@ const { $StackPointer, $FramePointer, ExpressionResult, Tmp } = Object.keys(
 const expressions = [] as Expression[];
 const scopes = [] as string[];
 const localVariables = {} as {
-  [functionName: string]: { name: string; arraySize?: Value }[];
+  [functionName: string]: {
+    name: string;
+    arraySize?: Value;
+  }[];
 };
 const currentFunctionName = () => scopes[0]?.split("#")[0];
 let fnReturnCount = 0;
@@ -167,13 +170,18 @@ const solveValue = (value: Value): VariableType => {
         .store({ direct: Tmp });
       return { indirect: Tmp };
     }
-    // If variable is an array, reference its address instead of value
-    if (
-      localVariables[currentFunctionName()]?.find(
-        (variable) => variable.name === value.variable
-      )?.arraySize
-    ) {
+    // If value is an array or is preceded by &, reference its address
+    // instead of value
+    const variableDefinition = localVariables[currentFunctionName()]?.find(
+      (variable) => variable.name === value.variable
+    );
+    if (variableDefinition?.arraySize || value.addressOperation) {
       return { direct: value.variable };
+    }
+    // If value is a pointer preceded by *, reference its value
+    if (value.pointerOperation) {
+      marieCodeBuilder.copy({ indirect: value.variable }, { direct: Tmp });
+      return { indirect: Tmp };
     }
     // Otherwise, use variable value
     return { indirect: value.variable };

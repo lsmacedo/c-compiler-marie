@@ -3,7 +3,8 @@ export type Value = {
   functionCall?: FunctionCall;
   variable?: string;
   arrayPosition?: Value;
-  isReference?: boolean;
+  addressOperation?: boolean;
+  pointerOperation?: boolean;
   expression?: Operation;
 };
 
