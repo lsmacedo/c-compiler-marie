@@ -117,9 +117,9 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
         .comment(`Roll back local variables for ${currentFunction.name}`)
         .add({ literal: 1 })
         .store({ direct: $StackPointer });
-      currentFunction.params.forEach(({ name }) => {
+      variables.forEach((variable) => {
         marieCodeBuilder
-          .store({ direct: name })
+          .store({ direct: variable })
           .add({ literal: 1 })
           .store({ direct: $StackPointer });
       });
