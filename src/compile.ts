@@ -9,23 +9,38 @@ import {
 } from "./types";
 import { Builder, VariableType } from "./marieCodeBuilder";
 
-const {
-  $callStackPointer,
-  $callStackAllocation,
-  $callerListPointer,
-  opResult,
-  fnReturn,
-  tmp,
-} = {
+/*
+Representation for call stack implementation:
+
+$StackPointer  --->      Top of Stack
+                    ======================
+                    |   Local Variables  |
+                    |    Return Address  |
+$FramePointer  ---> |     Parameters     |
+                    ======================
+                    |   Local Variables  |
+                    |    Return Address  |
+$FramePointer  ---> |     Parameters     |
+                    ======================
+                    |         ...        |
+*/
+
+const initialVariables = {
   // Call stack management
-  $callStackPointer: "$CallStackPointer", // Stores the address of the current item of the call stack
-  $callStackAllocation: "$CallStackAllocation", // Stores the addresses of the start addresses of the stack frames
-  $callerListPointer: "$CallerListPointer", // Stores the address of the current item of the caller list (a list of addresses to return after each function call)
+  $StackPointer: 1000, // Pointer to the top of call stack
+  $FramePointer: 2000, // Pointer to the base of stack frame N, where N is the value of this variable
   // Operations
-  opResult: "OpResult", // Stores the result of the last operation
-  fnReturn: "FnReturn", // Stores the return of the last function call
-  tmp: "Tmp",
+  OpResult: 0, // Stores the result of the last operation
+  FnReturn: 0, // Stores the return of the last function call
+  Tmp: 0,
 } as const;
+
+const { $StackPointer, $FramePointer, OpResult, FnReturn, Tmp } = Object.keys(
+  initialVariables
+).reduce(
+  (acc, curr) => ({ ...acc, [curr]: curr }),
+  {} as { [name: string]: string }
+);
 
 const expressions = [] as Expression[];
 const scopes = [] as string[];
@@ -38,18 +53,21 @@ let blockCount = 0;
 const marieCodeBuilder = new Builder();
 
 const builtInFunctions = {
-  scan: () => marieCodeBuilder.input().store({ direct: fnReturn }),
+  scan: () => marieCodeBuilder.input().store({ direct: FnReturn }),
   print: (params: Value[]) =>
     marieCodeBuilder.load(solveValue(params[0])).output(),
 };
 
-const performFunctionCall = (functionName: string, params: Value[]) => {
-  // If it is a built-in function, call it
-  const functionDefinition = expressions.find(
+const getFunctionByName = (functionName: string) => {
+  return expressions.find(
     (line) =>
       line.expressionType === "functionDefinition" &&
       (line as FunctionDefinition).name === functionName
   ) as FunctionDefinition;
+};
+
+const performFunctionCall = (functionName: string, params: Value[]) => {
+  // If it is a built-in function, call it
   const builtInFunction =
     builtInFunctions[functionName as keyof typeof builtInFunctions];
   if (builtInFunction) {
@@ -61,42 +79,52 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
     .comment("Preparing for function call")
     .jnS("pushToCallStack");
 
+  const functionDefinition = getFunctionByName(functionName);
+
   // Set params for function call
   params.forEach((param, index) => {
     const variableName = functionDefinition.params[index].name;
     const solvedValue = solveValue(param);
     marieCodeBuilder
       .comment(`Set param ${variableName}`)
-      .copy(solvedValue, { indirect: $callStackPointer })
-      .copy({ direct: $callStackPointer }, { direct: variableName })
-      .increment({ direct: $callStackPointer });
+      .copy(solvedValue, { indirect: $StackPointer })
+      .copy({ direct: $StackPointer }, { direct: variableName })
+      .increment({ direct: $StackPointer });
   });
 
   // Call function
-  marieCodeBuilder.comment("Function call").jnS(functionName);
+  marieCodeBuilder.comment("Function call").jnS(functionName).clear();
 
   // Rollback variables after function call
   if (currentFunctionName()) {
-    const currentFunction = expressions.find(
-      (line) =>
-        line.expressionType === "functionDefinition" &&
-        (line as FunctionDefinition).name === currentFunctionName()
-    ) as FunctionDefinition;
-    const variables = [
-      ...currentFunction.params.map((p) => p.name),
-      ...(localVariables[currentFunction.name] ?? []),
-    ];
+    const currentFunction = getFunctionByName(currentFunctionName());
+    const variables = localVariables[currentFunction.name] ?? [];
+    if (currentFunction.params.length) {
+      marieCodeBuilder
+        .comment(`Roll back params for ${currentFunction.name}`)
+        .load({ direct: $StackPointer });
+      currentFunction.params.forEach(({ name }) => {
+        marieCodeBuilder
+          .store({ direct: name })
+          .add({ literal: 1 })
+          .store({ direct: $StackPointer });
+      });
+    }
+    marieCodeBuilder
+      .comment("Skip return address")
+      .increment({ direct: $StackPointer });
     if (variables.length) {
       marieCodeBuilder
-        .comment(`Rolling back variables for ${currentFunction.name}`)
-        .load({ direct: $callStackPointer });
-      variables.forEach((variable) => {
+        .comment(`Roll back local variables for ${currentFunction.name}`)
+        .add({ literal: 1 })
+        .store({ direct: $StackPointer });
+      currentFunction.params.forEach(({ name }) => {
         marieCodeBuilder
-          .store({ direct: variable })
+          .store({ direct: name })
           .add({ literal: 1 })
-          .store({ direct: $callStackPointer });
+          .store({ direct: $StackPointer });
       });
-      marieCodeBuilder.comment("Resuming function execution");
+      marieCodeBuilder.comment("Resumefunction execution");
     }
   }
 };
@@ -109,8 +137,8 @@ const declareVariable = (name: string) => {
     localVariables[currentFunctionName()].push(name);
     marieCodeBuilder
       .comment(`Declare variable ${name}`)
-      .copy({ direct: $callStackPointer }, { direct: name })
-      .increment({ direct: $callStackPointer });
+      .copy({ direct: $StackPointer }, { direct: name })
+      .increment({ direct: $StackPointer });
   }
 };
 
@@ -124,9 +152,9 @@ const solveValue = (value: Value): VariableType => {
   if (value.functionCall !== undefined) {
     const { name, params } = value.functionCall;
     performFunctionCall(name, params);
-    const variableName = `${fnReturn}${fnReturnCount++}`;
+    const variableName = `${FnReturn}${fnReturnCount++}`;
     declareVariable(variableName);
-    marieCodeBuilder.copy({ direct: fnReturn }, { indirect: variableName });
+    marieCodeBuilder.copy({ direct: FnReturn }, { indirect: variableName });
     return { indirect: variableName };
   }
   if (value.expression !== undefined) {
@@ -134,14 +162,17 @@ const solveValue = (value: Value): VariableType => {
     const a = solveValue(firstOperand);
     const b = solveValue(secondOperand);
     if (operator === "+") {
-      marieCodeBuilder.load(a).add(b).store({ direct: opResult });
+      marieCodeBuilder.load(a).add(b).store({ direct: OpResult });
     }
     if (operator === "-") {
       marieCodeBuilder
-        .copy(b, { direct: tmp })
+        .copy(b, { direct: Tmp })
         .load(a)
-        .subt({ direct: tmp })
-        .store({ direct: opResult });
+        .subt({ direct: Tmp })
+        .store({ direct: OpResult });
+    }
+    if (operator === "*") {
+      marieCodeBuilder.jnS("multiply");
     }
     if (["==", "!=", ">", "<", ">=", "<="].includes(operator)) {
       const condition = (() => {
@@ -156,7 +187,7 @@ const solveValue = (value: Value): VariableType => {
       const then = operator !== "!=" ? 1 : 0;
       const otherwise = operator !== "!=" ? 0 : 1;
 
-      marieCodeBuilder.copy(b, { direct: tmp }).load(a);
+      marieCodeBuilder.copy(b, { direct: Tmp }).load(a);
       if (operator === ">=") {
         marieCodeBuilder.add({ literal: 1 });
       }
@@ -166,56 +197,55 @@ const solveValue = (value: Value): VariableType => {
 
       const conditionId = `#condition${conditionCount++}`;
       marieCodeBuilder
-        .subt({ direct: tmp })
+        .subt({ direct: Tmp })
         .skipIfCondition(condition)
         .jump(`${conditionId}else`)
-        .copy({ literal: then }, { direct: opResult })
+        .copy({ literal: then }, { direct: OpResult })
         .jump(`${conditionId}finally`)
         .label(`${conditionId}else`)
-        .copy({ literal: otherwise }, { direct: opResult })
+        .copy({ literal: otherwise }, { direct: OpResult })
         .label(`${conditionId}finally`)
         .clear();
     }
-    return { direct: opResult };
+    return { direct: OpResult };
   }
   throw new Error("Invalid value");
+};
+
+const jumpToReturnAddress = () => {
+  const currentFunction = getFunctionByName(currentFunctionName());
+  marieCodeBuilder
+    .comment("Jump to return address")
+    .load({ direct: $FramePointer })
+    .add({ literal: 1 })
+    .store({ direct: Tmp })
+    .load({ indirect: Tmp })
+    .add({ literal: currentFunction.params.length })
+    .store({ direct: Tmp })
+    .jumpI(Tmp);
 };
 
 export const compileForMarieAssemblyLanguage = (
   parsedExpressions: Expression[]
 ) => {
-  marieCodeBuilder.declareVariables({
-    // Call stack management
-    $CallStackPointer: 1000, // Stores the address of the current item of the call stack
-    $CallStackAllocation: 2000, // Stores the addresses of the start addresses of the stacks
-    $CallerListPointer: 3000, // Stores the address of the current item of the caller list
-    // Operations
-    OpResult: 0, // Stores the result of the last operation
-    FnReturn: 0, // Stores the return of the last function call
-    Tmp: 0,
-  });
+  marieCodeBuilder.declareVariables(initialVariables);
 
   // First command should be a function call to "main"
-  marieCodeBuilder.jnS("pushToCallStack").jnS("main");
+  marieCodeBuilder.jnS("pushToCallStack").jnS("main").clear().halt();
 
   // Declare procedure pushToCallStack
   marieCodeBuilder
     .procedure("pushToCallStack")
-    .increment({ direct: $callStackAllocation })
-    .copy({ direct: $callStackPointer }, { indirect: $callStackAllocation })
-    .increment({ direct: $callerListPointer })
+    .increment({ direct: $FramePointer })
+    .copy({ direct: $StackPointer }, { indirect: $FramePointer })
     .jumpI("pushToCallStack");
 
   // Declare procedure popFromCallStack
   marieCodeBuilder
     .procedure("popFromCallStack")
-    .decrement({ direct: $callStackAllocation })
-    .copy({ indirect: $callStackAllocation }, { direct: $callStackPointer })
-    .copy({ indirect: $callerListPointer }, { direct: tmp })
-    .decrement({ direct: $callerListPointer })
-    .skipIfEqual({ indirect: $callerListPointer }, { literal: 0 })
-    .jumpI(tmp)
-    .halt();
+    .decrement({ direct: $FramePointer })
+    .copy({ indirect: $FramePointer }, { direct: $StackPointer })
+    .jumpI("popFromCallStack");
 
   expressions.push(...parsedExpressions);
   // Go through each expression
@@ -226,8 +256,9 @@ export const compileForMarieAssemblyLanguage = (
         scopes.unshift(name);
         marieCodeBuilder
           .procedure(name)
-          .comment("Store caller address")
-          .copy({ direct: name }, { indirect: $callerListPointer });
+          .comment("Store return address on stack frame")
+          .copy({ direct: name }, { indirect: $StackPointer })
+          .increment({ direct: $StackPointer });
         break;
       }
       case "variableDeclaration":
@@ -248,8 +279,9 @@ export const compileForMarieAssemblyLanguage = (
         const { value } = line as Return;
         marieCodeBuilder
           .comment("Store return value")
-          .copy(solveValue(value), { direct: fnReturn })
+          .copy(solveValue(value), { direct: FnReturn })
           .jnS("popFromCallStack");
+        jumpToReturnAddress();
         break;
       }
       case "functionCall": {
@@ -282,6 +314,7 @@ export const compileForMarieAssemblyLanguage = (
           marieCodeBuilder.label(`#block${conditionIndex}finally`).clear();
         } else {
           marieCodeBuilder.jnS("popFromCallStack");
+          jumpToReturnAddress();
         }
         scopes.shift();
         break;
