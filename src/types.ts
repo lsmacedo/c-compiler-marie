@@ -21,6 +21,7 @@ export type FunctionDefinition = {
   params: {
     type: string;
     name: string;
+    isArray: boolean;
   }[];
 };
 

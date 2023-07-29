@@ -43,7 +43,9 @@ const { $StackPointer, $FramePointer, ExpressionResult, Tmp } = Object.keys(
 
 const expressions = [] as Expression[];
 const scopes = [] as string[];
-const localVariables = {} as { [functionName: string]: string[] };
+const localVariables = {} as {
+  [functionName: string]: { name: string; arraySize?: Value }[];
+};
 const currentFunctionName = () => scopes[0]?.split("#")[0];
 let fnReturnCount = 0;
 let conditionCount = 0;
@@ -113,27 +115,32 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
       .comment("Skip return address")
       .increment({ direct: $StackPointer });
     if (variables.length) {
-      marieCodeBuilder
-        .comment(`Roll back local variables for ${currentFunction.name}`)
-        .add({ literal: 1 })
-        .store({ direct: $StackPointer });
-      variables.forEach((variable) => {
+      marieCodeBuilder.comment(
+        `Roll back local variables for ${currentFunction.name}`
+      );
+      variables.forEach(({ name, arraySize }) => {
         marieCodeBuilder
-          .store({ direct: variable })
-          .add({ literal: 1 })
+          .store({ direct: name })
+          .add(arraySize ?? { literal: 1 })
           .store({ direct: $StackPointer });
       });
-      marieCodeBuilder.comment("Resumefunction execution");
+      marieCodeBuilder.comment("Resume function execution");
     }
   }
 };
 
 const declareVariable = (name: string, arraySize?: Value) => {
-  if (!localVariables[currentFunctionName()]) {
-    localVariables[currentFunctionName()] = [];
+  const functionName = currentFunctionName();
+  if (!localVariables[functionName]) {
+    localVariables[functionName] = [];
   }
-  if (!localVariables[currentFunctionName()].includes(name)) {
-    localVariables[currentFunctionName()].push(name);
+  if (
+    !localVariables[functionName].some((variable) => variable.name === name)
+  ) {
+    localVariables[functionName].push({
+      name,
+      arraySize: arraySize ? solveValue(arraySize) : undefined,
+    });
     marieCodeBuilder
       .comment(`Declare variable ${name}`)
       .copy({ direct: $StackPointer }, { direct: name });
@@ -151,14 +158,24 @@ const declareVariable = (name: string, arraySize?: Value) => {
 
 const solveValue = (value: Value): VariableType => {
   if (value.variable !== undefined) {
+    // If getting array at position N, skip N items from array address
     if (value.arrayPosition) {
       const solvedArrayPosition = solveValue(value.arrayPosition);
       marieCodeBuilder
-        .load({ direct: value.variable })
+        .load({ indirect: value.variable })
         .add(solvedArrayPosition)
         .store({ direct: Tmp });
       return { indirect: Tmp };
     }
+    // If variable is an array, reference its address instead of value
+    if (
+      localVariables[currentFunctionName()]?.find(
+        (variable) => variable.name === value.variable
+      )?.arraySize
+    ) {
+      return { direct: value.variable };
+    }
+    // Otherwise, use variable value
     return { indirect: value.variable };
   }
   if (value.literal !== undefined) {
