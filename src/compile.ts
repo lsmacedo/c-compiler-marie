@@ -30,12 +30,11 @@ const initialVariables = {
   $StackPointer: 1000, // Pointer to the top of call stack
   $FramePointer: 2000, // Pointer to the base of stack frame N, where N is the value of this variable
   // Operations
-  OpResult: 0, // Stores the result of the last operation
-  FnReturn: 0, // Stores the return of the last function call
+  ExpressionResult: 0, // Stores the result of the last operation or function return value
   Tmp: 0,
 } as const;
 
-const { $StackPointer, $FramePointer, OpResult, FnReturn, Tmp } = Object.keys(
+const { $StackPointer, $FramePointer, ExpressionResult, Tmp } = Object.keys(
   initialVariables
 ).reduce(
   (acc, curr) => ({ ...acc, [curr]: curr }),
@@ -53,7 +52,7 @@ let blockCount = 0;
 const marieCodeBuilder = new Builder();
 
 const builtInFunctions = {
-  scan: () => marieCodeBuilder.input().store({ direct: FnReturn }),
+  scan: () => marieCodeBuilder.input().store({ direct: ExpressionResult }),
   print: (params: Value[]) =>
     marieCodeBuilder.load(solveValue(params[0])).output(),
 };
@@ -152,9 +151,12 @@ const solveValue = (value: Value): VariableType => {
   if (value.functionCall !== undefined) {
     const { name, params } = value.functionCall;
     performFunctionCall(name, params);
-    const variableName = `${FnReturn}${fnReturnCount++}`;
+    const variableName = `${ExpressionResult}${fnReturnCount++}`;
     declareVariable(variableName);
-    marieCodeBuilder.copy({ direct: FnReturn }, { indirect: variableName });
+    marieCodeBuilder.copy(
+      { direct: ExpressionResult },
+      { indirect: variableName }
+    );
     return { indirect: variableName };
   }
   if (value.expression !== undefined) {
@@ -162,14 +164,14 @@ const solveValue = (value: Value): VariableType => {
     const a = solveValue(firstOperand);
     const b = solveValue(secondOperand);
     if (operator === "+") {
-      marieCodeBuilder.load(a).add(b).store({ direct: OpResult });
+      marieCodeBuilder.load(a).add(b).store({ direct: ExpressionResult });
     }
     if (operator === "-") {
       marieCodeBuilder
         .copy(b, { direct: Tmp })
         .load(a)
         .subt({ direct: Tmp })
-        .store({ direct: OpResult });
+        .store({ direct: ExpressionResult });
     }
     if (operator === "*") {
       marieCodeBuilder.jnS("multiply");
@@ -200,14 +202,14 @@ const solveValue = (value: Value): VariableType => {
         .subt({ direct: Tmp })
         .skipIfCondition(condition)
         .jump(`${conditionId}else`)
-        .copy({ literal: then }, { direct: OpResult })
+        .copy({ literal: then }, { direct: ExpressionResult })
         .jump(`${conditionId}finally`)
         .label(`${conditionId}else`)
-        .copy({ literal: otherwise }, { direct: OpResult })
+        .copy({ literal: otherwise }, { direct: ExpressionResult })
         .label(`${conditionId}finally`)
         .clear();
     }
-    return { direct: OpResult };
+    return { direct: ExpressionResult };
   }
   throw new Error("Invalid value");
 };
@@ -279,7 +281,7 @@ export const compileForMarieAssemblyLanguage = (
         const { value } = line as Return;
         marieCodeBuilder
           .comment("Store return value")
-          .copy(solveValue(value), { direct: FnReturn })
+          .copy(solveValue(value), { direct: ExpressionResult })
           .jnS("popFromCallStack");
         jumpToReturnAddress();
         break;
