@@ -6,6 +6,8 @@ export type Value = {
   addressOperation?: boolean;
   pointerOperation?: boolean;
   expression?: Operation;
+  prefix?: string;
+  postfix?: string;
 };
 
 export type VariableAssignment = {

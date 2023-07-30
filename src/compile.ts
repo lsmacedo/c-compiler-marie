@@ -171,16 +171,27 @@ const evaluate = (value: Value): VariableType => {
     const variableDefinition = getVariableDefinition(value.variable);
     const returnType =
       (variableDefinition?.arraySize && !value.arrayPosition) ||
-      value.addressOperation
+      value.addressOperation ||
+      value.postfix ||
+      value.prefix === "-"
         ? "direct"
         : "indirect";
 
     // If a new variable is required, set it into returnVariable
     let returnVariable = value.variable;
-    if (value.arrayPosition || value.pointerOperation) {
+    if (
+      value.arrayPosition ||
+      value.pointerOperation ||
+      value.postfix ||
+      value.prefix === "-"
+    ) {
       const variableName = `${ExpressionResult}${fnReturnCount++}`;
       declareVariable(variableName);
       returnVariable = variableName;
+      marieCodeBuilder.copy(
+        { direct: value.variable },
+        { direct: variableName }
+      );
     }
 
     // If getting array at position N, skip N items from array address
@@ -188,19 +199,43 @@ const evaluate = (value: Value): VariableType => {
       const positionsToSkip = evaluate(value.arrayPosition);
       const loadType = variableDefinition ? "direct" : "indirect";
       marieCodeBuilder
-        .load({ [loadType]: value.variable })
+        .load({ [loadType]: returnVariable })
         .add(positionsToSkip)
         .store({ direct: returnVariable });
     }
 
     if (value.pointerOperation) {
       marieCodeBuilder.copy(
-        { indirect: value.variable },
+        { indirect: returnVariable },
         { direct: returnVariable }
       );
     }
 
-    // Otherwise, use variable value
+    // Apply unary operators ++, -- or -
+    const unaryOperator = value.prefix || value.postfix;
+    if (value.prefix && ["++", "--"].includes(value.prefix)) {
+      marieCodeBuilder
+        .load({ indirect: returnVariable })
+        .add({ literal: unaryOperator === "++" ? 1 : -1 })
+        .store({ indirect: returnVariable });
+    }
+    if (value.prefix === "-") {
+      marieCodeBuilder
+        .copy({ indirect: returnVariable }, { direct: Tmp })
+        .load({ literal: 0 })
+        .subt({ direct: Tmp })
+        .store({ direct: returnVariable });
+    }
+    if (value.postfix) {
+      marieCodeBuilder
+        .copy({ indirect: returnVariable }, { direct: Tmp })
+        .load({ indirect: returnVariable })
+        .add({ literal: unaryOperator === "++" ? 1 : -1 })
+        .store({ indirect: returnVariable })
+        .copy({ direct: Tmp }, { direct: returnVariable });
+    }
+
+    // Return
     return { [returnType]: returnVariable };
   }
   if (value.literal !== undefined) {
@@ -407,6 +442,11 @@ export const compileForMarieAssemblyLanguage = (
           jumpToReturnAddress();
         }
         scopes.shift();
+        break;
+      }
+      case "literal":
+      case "variable": {
+        evaluate(line as Value);
         break;
       }
     }

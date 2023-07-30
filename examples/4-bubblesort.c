@@ -7,7 +7,7 @@ int main()
   while (i < size)
   {
     array[i] = scan();
-    i = i + 1;
+    i++;
   }
 
   bubbleSort(array, size);
@@ -16,7 +16,7 @@ int main()
   while (i < size)
   {
     print(array[i]);
-    i = i + 1;
+    i++;
   }
 }
 

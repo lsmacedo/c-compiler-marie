@@ -14,7 +14,18 @@ import {
  * Recursively parse a string into the Value type.
  */
 const parseValue = (value: string): Value => {
-  const { functionCall, arithmetic, relational } = expressionTypes;
+  const { functionCall, arithmetic, relational, literal, variable } =
+    expressionTypes;
+  // Literal value (e.g. 5)
+  if (literal.regex.test(value)) {
+    const { regex, parser } = literal;
+    return parser(value.match(regex)!);
+  }
+  // Variable (e.g. x)
+  if (variable.regex.test(value)) {
+    const { regex, parser } = variable;
+    return parser(value.match(regex)!);
+  }
   // Function call (e.g. func(x, 10))
   if (functionCall.regex.test(value)) {
     const { regex, parser } = functionCall;
@@ -30,28 +41,7 @@ const parseValue = (value: string): Value => {
     const { regex, parser } = arithmetic;
     return { expression: parser(value.match(regex)!) };
   }
-  // Literal value (e.g. 5)
-  if (!isNaN(Number(value))) {
-    return { literal: value };
-  }
-  // Otherwise, consider it a variable (e.g. x)
-  const arrayRegex = /(?:\[)([^\]]+)(?:\])/;
-  const array = value.match(arrayRegex);
-  let arrayPosition: Value | undefined;
-  if (array) {
-    arrayPosition = parseValue(array[1]);
-  }
-  const addressOperation = value.trim().startsWith("&");
-  const pointerOperation = value.trim().startsWith("*");
-  return {
-    variable: value
-      .replace(arrayRegex, "")
-      .replace(/[\*\&]/g, "")
-      .trim(),
-    addressOperation,
-    pointerOperation,
-    arrayPosition,
-  };
+  throw new Error(`Unable to parse value ${value}`);
 };
 
 /**
@@ -153,10 +143,34 @@ const expressionTypes = {
       return { type, value: parseValue(conditionString) };
     },
   },
+  // Literal
+  literal: {
+    regex: /^\s*([0-9]+)\s*;?\s*$/,
+    parser: (matches: string[]): Value => {
+      const [_, value] = matches;
+      return { literal: value };
+    },
+  },
+  // Variable
+  variable: {
+    regex:
+      /^\s*(?<prefix>\+\+|--|-)?\s*(?<pointer>&|\*)?\s*(?<variable>[^0-9^\s()\+\-\*\/\[\]{}&][^\s()\+\-\*\/\[\]{}&]*)\s*(?:\[(?<array>[^\]]+)\])?\s*(?<postfix>\+\+)?\s*;?\s*$/,
+    parser: (matches: string[]): Value => {
+      const [_, prefix, pointer, variable, arrayPosition, postfix] = matches;
+      return {
+        prefix,
+        addressOperation: pointer === "&",
+        pointerOperation: pointer === "*",
+        variable,
+        arrayPosition: arrayPosition ? parseValue(arrayPosition) : undefined,
+        postfix,
+      };
+    },
+  },
   // Arithmetic expression
   arithmetic: {
     regex:
-      /^\s*(?<firstOperand>[^\s\[]+)\s*(?<operator>[+\-])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|[^\s]+)\s*(?<operator>[+\-\*\/])\s*(?<secondOperand>.+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);
@@ -167,7 +181,7 @@ const expressionTypes = {
   // Relational expression
   relational: {
     regex:
-      /^\s*(?<firstOperand>[^\s]+)\s*(?<operator>\>=|\<=|==|!=|[><])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|[^\s]+)\s*(?<operator>\>=|\<=|==|!=|[><])\s*(?<secondOperand>.+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);
