@@ -1,8 +1,10 @@
-int main() {
+int main()
+{
   int arraySize = scan();
   int array[arraySize];
   int i = 0;
-  while (i < arraySize) {
+  while (i < arraySize)
+  {
     array[i] = scan();
     i = i + 1;
   }
@@ -10,10 +12,12 @@ int main() {
   print(sum);
 }
 
-int arrayElementsSum(int array[], int arraySize) {
+int arrayElementsSum(int array[], int arraySize)
+{
   int i = 0;
   int sum = 0;
-  while (i < arraySize) {
+  while (i < arraySize)
+  {
     sum = sum + array[i];
     i = i + 1;
   }

@@ -35,10 +35,9 @@ void bubbleSort(int array[], int size)
   {
     while (counter1 < size - 1)
     {
-      int counterPlusOne = counter1 + 1;
-      if (array[counter1] > array[counterPlusOne])
+      if (array[counter1] > array[counter1 + 1])
       {
-        swap(&array[counter1], &array[counterPlusOne]);
+        swap(&array[counter1], &array[counter1 + 1]);
       }
       counter1 = counter1 + 1;
     }
