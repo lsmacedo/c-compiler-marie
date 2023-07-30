@@ -1,6 +1,7 @@
-int main() {
+int main()
+{
   int x = 5;
-  int* pointer = &x;
+  int *pointer = &x;
 
   print(x);
   print(*pointer);
@@ -10,4 +11,9 @@ int main() {
 
   print(x == *pointer);
   print(&x == pointer);
+
+  *pointer = 6;
+
+  print(x);
+  print(*pointer);
 }

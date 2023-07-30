@@ -124,11 +124,12 @@ const expressionTypes = {
   // Assignment of a value to a variable
   variableAssignment: {
     regex:
-      /^\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*\=\s*(?<value>.+)\s*;\s*$/,
+      /^\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*\=\s*(?<value>.+)\s*;\s*$/,
     parser: (matches: string[]): VariableAssignment => {
-      const [_, name, array, value] = matches;
+      const [_, pointer, name, array, value] = matches;
       return {
         name,
+        pointerOperation: pointer !== undefined,
         arrayPosition: array
           ? parseValue(array.substring(1, array.length - 1))
           : undefined,
@@ -155,7 +156,7 @@ const expressionTypes = {
   // Arithmetic expression
   arithmetic: {
     regex:
-      /^\s*(?<firstOperand>[^\s]+)\s*(?<operator>[+\-])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s\[]+)\s*(?<operator>[+\-])\s*(?<secondOperand>.+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);

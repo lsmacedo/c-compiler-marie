@@ -62,12 +62,18 @@ const builtInFunctions = {
     marieCodeBuilder.load(solveValue(params[0])).output(),
 };
 
-const getFunctionByName = (functionName: string) => {
+const getFunctionDefinition = (functionName: string) => {
   return expressions.find(
     (line) =>
       line.expressionType === "functionDefinition" &&
       (line as FunctionDefinition).name === functionName
   ) as FunctionDefinition;
+};
+
+const getVariableDefinition = (variableName: string) => {
+  return localVariables[currentFunctionName()]?.find(
+    (variable) => variable.name === variableName
+  );
 };
 
 const performFunctionCall = (functionName: string, params: Value[]) => {
@@ -83,7 +89,7 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
     .comment("Preparing for function call")
     .jnS("pushToCallStack");
 
-  const functionDefinition = getFunctionByName(functionName);
+  const functionDefinition = getFunctionDefinition(functionName);
 
   // Set params for function call
   params.forEach((param, index) => {
@@ -101,7 +107,7 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
 
   // Rollback variables after function call
   if (currentFunctionName()) {
-    const currentFunction = getFunctionByName(currentFunctionName());
+    const currentFunction = getFunctionDefinition(currentFunctionName());
     const variables = localVariables[currentFunction.name] ?? [];
     if (currentFunction.params.length) {
       marieCodeBuilder
@@ -161,35 +167,50 @@ const declareVariable = (name: string, arraySize?: Value) => {
 
 const solveValue = (value: Value): VariableType => {
   if (value.variable !== undefined) {
-    // If getting array at position N, skip N items from array address
-    if (value.arrayPosition) {
-      const solvedArrayPosition = solveValue(value.arrayPosition);
-      marieCodeBuilder
-        .load({ indirect: value.variable })
-        .add(solvedArrayPosition)
-        .store({ direct: Tmp });
-      return { indirect: Tmp };
-    }
+    marieCodeBuilder.comment(`Load variable ${value.variable}`);
     // If value is an array or is preceded by &, reference its address
     // instead of value
-    const variableDefinition = localVariables[currentFunctionName()]?.find(
-      (variable) => variable.name === value.variable
-    );
-    if (variableDefinition?.arraySize || value.addressOperation) {
-      return { direct: value.variable };
+    const variableDefinition = getVariableDefinition(value.variable);
+    const returnType =
+      (variableDefinition?.arraySize && !value.arrayPosition) ||
+      value.addressOperation
+        ? "direct"
+        : "indirect";
+
+    // If a new variable is required, set it into returnVariable
+    let returnVariable = value.variable;
+    if (value.arrayPosition || value.pointerOperation) {
+      const variableName = `${ExpressionResult}${fnReturnCount++}`;
+      declareVariable(variableName);
+      returnVariable = variableName;
     }
-    // If value is a pointer preceded by *, reference its value
+
+    // If getting array at position N, skip N items from array address
+    if (value.arrayPosition) {
+      const positionsToSkip = solveValue(value.arrayPosition);
+      const loadType = variableDefinition ? "direct" : "indirect";
+      marieCodeBuilder
+        .load({ [loadType]: value.variable })
+        .add(positionsToSkip)
+        .store({ direct: returnVariable });
+    }
+
     if (value.pointerOperation) {
-      marieCodeBuilder.copy({ indirect: value.variable }, { direct: Tmp });
-      return { indirect: Tmp };
+      marieCodeBuilder.copy(
+        { indirect: value.variable },
+        { direct: returnVariable }
+      );
     }
+
     // Otherwise, use variable value
-    return { indirect: value.variable };
+    return { [returnType]: returnVariable };
   }
   if (value.literal !== undefined) {
+    marieCodeBuilder.comment(`Load literal ${value.literal}`);
     return { literal: value.literal };
   }
   if (value.functionCall !== undefined) {
+    marieCodeBuilder.comment(`Load function call ${value.functionCall.name}`);
     const { name, params } = value.functionCall;
     performFunctionCall(name, params);
     const variableName = `${ExpressionResult}${fnReturnCount++}`;
@@ -256,7 +277,7 @@ const solveValue = (value: Value): VariableType => {
 };
 
 const jumpToReturnAddress = () => {
-  const currentFunction = getFunctionByName(currentFunctionName());
+  const currentFunction = getFunctionDefinition(currentFunctionName());
   marieCodeBuilder
     .comment("Jump to return address")
     .load({ direct: $FramePointer })
@@ -306,23 +327,42 @@ export const compileForMarieAssemblyLanguage = (
       }
       case "variableDeclaration":
       case "variableAssignment": {
-        const { type, name, arraySize, arrayPosition, value } =
-          line as VariableAssignment;
+        const {
+          type,
+          pointerOperation,
+          name,
+          arraySize,
+          arrayPosition,
+          value,
+        } = line as VariableAssignment;
         if (type) {
           declareVariable(name, arraySize);
         }
         if (value) {
           const solvedValue = solveValue(value);
+          const positionsToSkip = arrayPosition
+            ? solveValue(arrayPosition)
+            : undefined;
           marieCodeBuilder.comment(`Assign value to variable ${name}`);
-          if (arrayPosition) {
-            const solvedArrayPosition = solveValue(arrayPosition);
+          const loadType =
+            pointerOperation || (arrayPosition && !getVariableDefinition(name))
+              ? "indirect"
+              : "direct";
+          const variableName = loadType === "direct" ? name : Tmp;
+          if (loadType === "indirect") {
+            marieCodeBuilder.copy(
+              { [loadType]: name },
+              { direct: variableName }
+            );
+          }
+          if (positionsToSkip) {
             marieCodeBuilder
-              .load({ direct: name })
-              .add(solvedArrayPosition)
+              .load({ direct: variableName })
+              .add(positionsToSkip)
               .store({ direct: Tmp })
               .copy(solvedValue, { indirect: Tmp });
           } else {
-            marieCodeBuilder.copy(solvedValue, { indirect: name });
+            marieCodeBuilder.copy(solvedValue, { indirect: variableName });
           }
         }
         break;

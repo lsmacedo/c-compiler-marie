@@ -10,6 +10,7 @@ export type Value = {
 
 export type VariableAssignment = {
   type?: string;
+  pointerOperation?: boolean;
   name: string;
   arraySize?: Value;
   arrayPosition?: Value;
