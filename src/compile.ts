@@ -322,6 +322,112 @@ const jumpToReturnAddress = () => {
     .jumpI(Tmp);
 };
 
+const compileExpression = (expression: Expression) => {
+  switch (expression.expressionType) {
+    case "functionDefinition": {
+      const { name } = expression as FunctionDefinition;
+      scopes.unshift(name);
+      marieCodeBuilder
+        .procedure(name)
+        .comment("Store return address on stack frame")
+        .copy({ direct: name }, { indirect: $StackPointer })
+        .increment({ direct: $StackPointer });
+      break;
+    }
+    case "variableDeclaration":
+    case "variableAssignment": {
+      const { type, pointerOperation, name, arraySize, arrayPosition, value } =
+        expression as VariableAssignment;
+      if (type) {
+        declareVariable(name, arraySize);
+      }
+      if (value) {
+        const valueVariable = evaluate(value);
+        const positionsToSkip = arrayPosition
+          ? evaluate(arrayPosition)
+          : undefined;
+        marieCodeBuilder.comment(`Assign value to variable ${name}`);
+        const loadType =
+          pointerOperation || (arrayPosition && !getVariableDefinition(name))
+            ? "indirect"
+            : "direct";
+        const variableName = loadType === "direct" ? name : Tmp;
+        if (loadType === "indirect") {
+          marieCodeBuilder.copy({ [loadType]: name }, { direct: variableName });
+        }
+        if (positionsToSkip) {
+          marieCodeBuilder
+            .load({ direct: variableName })
+            .add(positionsToSkip)
+            .store({ direct: Tmp })
+            .copy(valueVariable, { indirect: Tmp });
+        } else {
+          marieCodeBuilder.copy(valueVariable, { indirect: variableName });
+        }
+      }
+      break;
+    }
+    case "return": {
+      const { value } = expression as Return;
+      marieCodeBuilder
+        .comment("Store return value")
+        .copy(evaluate(value), { direct: ExpressionResult })
+        .jnS("popFromCallStack");
+      jumpToReturnAddress();
+      break;
+    }
+    case "functionCall": {
+      const { name, params } = expression as FunctionCall;
+      performFunctionCall(name, params);
+      break;
+    }
+    case "block": {
+      const { type, condition, forStatements } = expression as Block;
+      scopes.unshift(`${currentFunctionName()}#${type}#${blockCount}`);
+
+      if (type === "for") {
+        compileExpression(forStatements![0]);
+        scopes[0] += `#${JSON.stringify(forStatements![1])}`;
+      }
+
+      marieCodeBuilder
+        .label(`#block${blockCount}`)
+        .clear()
+        .load(evaluate(condition))
+        .subt({ literal: 1 })
+        .skipIfCondition("equal")
+        .jump(`#block${blockCount}finally`);
+
+      blockCount++;
+      break;
+    }
+    case "blockEnd": {
+      if (!scopes[0].includes("#")) {
+        marieCodeBuilder.jnS("popFromCallStack");
+        jumpToReturnAddress();
+        scopes.shift();
+        break;
+      }
+      const [_, type, index, forStatement] = scopes[0].split("#");
+      if (type === "for") {
+        compileExpression(JSON.parse(forStatement) as Expression);
+        marieCodeBuilder.jump(`#block${index}`);
+      }
+      if (type === "while") {
+        marieCodeBuilder.jump(`#block${index}`);
+      }
+      marieCodeBuilder.label(`#block${index}finally`).clear();
+      scopes.shift();
+      break;
+    }
+    case "literal":
+    case "variable": {
+      evaluate(expression as Value);
+      break;
+    }
+  }
+};
+
 export const compileForMarieAssemblyLanguage = (
   parsedExpressions: Expression[]
 ) => {
@@ -346,111 +452,7 @@ export const compileForMarieAssemblyLanguage = (
 
   expressions.push(...parsedExpressions);
   // Go through each expression
-  expressions.forEach((line) => {
-    switch (line.expressionType) {
-      case "functionDefinition": {
-        const { name } = line as FunctionDefinition;
-        scopes.unshift(name);
-        marieCodeBuilder
-          .procedure(name)
-          .comment("Store return address on stack frame")
-          .copy({ direct: name }, { indirect: $StackPointer })
-          .increment({ direct: $StackPointer });
-        break;
-      }
-      case "variableDeclaration":
-      case "variableAssignment": {
-        const {
-          type,
-          pointerOperation,
-          name,
-          arraySize,
-          arrayPosition,
-          value,
-        } = line as VariableAssignment;
-        if (type) {
-          declareVariable(name, arraySize);
-        }
-        if (value) {
-          const valueVariable = evaluate(value);
-          const positionsToSkip = arrayPosition
-            ? evaluate(arrayPosition)
-            : undefined;
-          marieCodeBuilder.comment(`Assign value to variable ${name}`);
-          const loadType =
-            pointerOperation || (arrayPosition && !getVariableDefinition(name))
-              ? "indirect"
-              : "direct";
-          const variableName = loadType === "direct" ? name : Tmp;
-          if (loadType === "indirect") {
-            marieCodeBuilder.copy(
-              { [loadType]: name },
-              { direct: variableName }
-            );
-          }
-          if (positionsToSkip) {
-            marieCodeBuilder
-              .load({ direct: variableName })
-              .add(positionsToSkip)
-              .store({ direct: Tmp })
-              .copy(valueVariable, { indirect: Tmp });
-          } else {
-            marieCodeBuilder.copy(valueVariable, { indirect: variableName });
-          }
-        }
-        break;
-      }
-      case "return": {
-        const { value } = line as Return;
-        marieCodeBuilder
-          .comment("Store return value")
-          .copy(evaluate(value), { direct: ExpressionResult })
-          .jnS("popFromCallStack");
-        jumpToReturnAddress();
-        break;
-      }
-      case "functionCall": {
-        const { name, params } = line as FunctionCall;
-        performFunctionCall(name, params);
-        break;
-      }
-      case "block": {
-        const { type, value: valueObject } = line as Block;
-        scopes.unshift(`${currentFunctionName()}#${type}${blockCount}`);
-
-        marieCodeBuilder
-          .label(`#block${blockCount}`)
-          .clear()
-          .load(evaluate(valueObject))
-          .subt({ literal: 1 })
-          .skipIfCondition("equal")
-          .jump(`#block${blockCount}finally`);
-
-        blockCount++;
-        break;
-      }
-      case "blockEnd": {
-        const blockRegex = /#if|#while/g;
-        if (scopes[0].match(blockRegex)) {
-          const conditionIndex = scopes[0].split(blockRegex)[1];
-          if (scopes[0].includes("#while")) {
-            marieCodeBuilder.jump(`#block${conditionIndex}`);
-          }
-          marieCodeBuilder.label(`#block${conditionIndex}finally`).clear();
-        } else {
-          marieCodeBuilder.jnS("popFromCallStack");
-          jumpToReturnAddress();
-        }
-        scopes.shift();
-        break;
-      }
-      case "literal":
-      case "variable": {
-        evaluate(line as Value);
-        break;
-      }
-    }
-  });
+  expressions.forEach((line) => compileExpression(line));
 
   return marieCodeBuilder.getCode();
 };

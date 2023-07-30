@@ -50,7 +50,8 @@ export type Return = {
 
 export type Block = {
   type: string;
-  value: Value;
+  condition: Value;
+  forStatements?: Expression[];
 };
 
 export type Expression = { expressionType: string } & (

@@ -2,21 +2,18 @@ int main()
 {
   int size = scan();
   int array[size];
-  int i = 0;
+  int i;
 
-  while (i < size)
+  for (i = 0; i < size; i++)
   {
     array[i] = scan();
-    i++;
   }
 
   bubbleSort(array, size);
 
-  i = 0;
-  while (i < size)
+  for (i = 0; i < size; i++)
   {
     print(array[i]);
-    i++;
   }
 }
 
@@ -29,19 +26,14 @@ void swap(int *x, int *y)
 
 void bubbleSort(int array[], int size)
 {
-  int counter = 0;
-  int counter1 = 0;
-  while (counter < size)
+  for (int counter = 0; counter < size; counter++)
   {
-    while (counter1 < size - 1)
+    for (int counter1 = 0; counter1 < size - 1; counter1++)
     {
       if (array[counter1] > array[counter1 + 1])
       {
         swap(&array[counter1], &array[counter1 + 1]);
       }
-      counter1 = counter1 + 1;
     }
-    counter = counter + 1;
-    counter1 = 0;
   }
 }

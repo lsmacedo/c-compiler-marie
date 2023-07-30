@@ -25,18 +25,16 @@ int recursive(int n)
 
 int iterative(int n)
 {
-  int i = 2;
   int t1 = 0;
   int t2 = 1;
 
   int nextTerm = t1 + t2;
 
-  while (i < n)
+  for (int i = 2; i < n; i++)
   {
     t1 = t2;
     t2 = nextTerm;
     nextTerm = t1 + t2;
-    i = i + 1;
   }
 
   return nextTerm;

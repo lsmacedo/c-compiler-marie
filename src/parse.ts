@@ -98,7 +98,7 @@ const expressionTypes = {
   // Variable declaration, with or without a value assignment
   variableDeclaration: {
     regex:
-      /^\s*(?<type>int)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*(?:\=\s*(?<value>.+))?\s*;\s*$/,
+      /^\s*(?<type>int)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+?)\s*(?<array>\[[^\]]+\])?\s*(?:\=\s*(?<value>.+?))?\s*;?\s*$/,
     parser: (matches: string[]): VariableAssignment => {
       const [_, type, pointer, name, array, value] = matches;
       return {
@@ -114,7 +114,7 @@ const expressionTypes = {
   // Assignment of a value to a variable
   variableAssignment: {
     regex:
-      /^\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*\=\s*(?<value>.+)\s*;\s*$/,
+      /^\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*\=\s*(?<value>.+?)\s*;?\s*$/,
     parser: (matches: string[]): VariableAssignment => {
       const [_, pointer, name, array, value] = matches;
       return {
@@ -137,10 +137,24 @@ const expressionTypes = {
   },
   // A block, which may or may not follow an If statement or a loop
   block: {
-    regex: /^\s*(?:(?<type>if|while)\s*\(\s*(?<value>.*?)\s*\)\s*)?{\s*$/,
+    regex: /^\s*(?:(?<type>if|while|for)\s*\(\s*(?<content>.*?)\s*\)\s*)?{\s*$/,
     parser: (matches: RegExpMatchArray): Block => {
-      const [_, type, conditionString] = matches;
-      return { type, value: parseValue(conditionString) };
+      const [_, type, content] = matches;
+      let condition: Value;
+      let forStatements: Expression[] | undefined;
+      if (type === "if" || type === "while") {
+        condition = parseValue(content);
+      } else if (type === "for") {
+        const statements = content.split(",");
+        condition = parseValue(statements[1]);
+        forStatements = [
+          parseExpression(statements[0]),
+          parseExpression(statements[2]),
+        ];
+      } else {
+        throw new Error("Invalid block type");
+      }
+      return { type, condition, forStatements };
     },
   },
   // Literal
@@ -198,21 +212,24 @@ const expressionTypes = {
   },
 };
 
+export const parseExpression = (line: string): Expression => {
+  const expressionType = Object.entries(expressionTypes).find(
+    ([_, { regex }]) => regex.test(line)
+  )![0] as keyof typeof expressionTypes;
+  const matches = line.match(expressionTypes[expressionType].regex);
+  return {
+    expressionType,
+    ...expressionTypes[expressionType].parser(matches!),
+  };
+};
+
 export const parseCode = (code: string): Expression[] => {
   return code
     .replace(/(\/\/.*)/g, "") // Remove single-line comments
     .replace(/\n/g, " ") // Remove line breaks
     .replace(/(\/\*.*\*\/)/g, "") // Remove multi-line comments
-    .match(/(.*?[;{}])/g)! // Split expressions by characters ; { }
-    .map((line) => {
-      const expressionType = Object.entries(expressionTypes).find(
-        ([_, { regex }]) => regex.test(line)
-      )![0] as keyof typeof expressionTypes;
-      const matches = line.match(expressionTypes[expressionType].regex);
-      return {
-        expressionType,
-        ...expressionTypes[expressionType].parser(matches!),
-      };
-    })
+    .replace(/(?<=\s*for\s*\([^\)]+);/g, ",") // Replace semicolons inside For statements with commas
+    .match(/(.*?[;{}])/g)! // Split expressions by curly brackets and semicolons
+    .map((line) => parseExpression(line))
     .filter(({ expressionType: opType }) => opType);
 };

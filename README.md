@@ -16,7 +16,7 @@ An extremely simple C compiler for [MARIE](https://marie.js.org/book.pdf) (Machi
 - **Arrays:** One dimensional arrays are supported.
 - **Arithmetic Expressions:** Addition and subtraction are the only supported arithmetic expressions so far.
 - **Functions:** Function definitions and function calls are supported. Function parameters, return address and local variables are stored in the call stack. Recursion is supported.
-- **Control Flow:** Control flow can currently be achieved with `if` and `while` statements.
+- **Control Flow:** Control flow can currently be achieved with `if`, `while` and `for` statements.
 
 ### Requirements
 
