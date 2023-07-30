@@ -20,11 +20,17 @@ int main()
   }
 }
 
+void swap(int *x, int *y)
+{
+  int swapVar = *x;
+  *x = *y;
+  *y = swapVar;
+}
+
 void bubbleSort(int array[], int size)
 {
   int counter = 0;
   int counter1 = 0;
-  int swapVar;
   while (counter < size)
   {
     while (counter1 < size - 1)
@@ -32,9 +38,7 @@ void bubbleSort(int array[], int size)
       int counterPlusOne = counter1 + 1;
       if (array[counter1] > array[counterPlusOne])
       {
-        swapVar = array[counter1];
-        array[counter1] = array[counterPlusOne];
-        array[counterPlusOne] = swapVar;
+        swap(&array[counter1], &array[counterPlusOne]);
       }
       counter1 = counter1 + 1;
     }

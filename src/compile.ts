@@ -59,7 +59,7 @@ const marieCodeBuilder = new Builder();
 const builtInFunctions = {
   scan: () => marieCodeBuilder.input().store({ direct: ExpressionResult }),
   print: (params: Value[]) =>
-    marieCodeBuilder.load(solveValue(params[0])).output(),
+    marieCodeBuilder.load(evaluate(params[0])).output(),
 };
 
 const getFunctionDefinition = (functionName: string) => {
@@ -85,20 +85,22 @@ const performFunctionCall = (functionName: string, params: Value[]) => {
     return;
   }
 
+  // Evaluate parameters before updating call stack, as temporary variables may
+  // be declared
+  const evaluatedParams = params.map((param) => evaluate(param));
+
+  // Update call stack
   marieCodeBuilder
     .comment("Preparing for function call")
     .jnS("pushToCallStack");
 
+  // Set parameters for function call
   const functionDefinition = getFunctionDefinition(functionName);
-
-  // Set params for function call
-  params.forEach((param, index) => {
-    const variableName = functionDefinition.params[index].name;
-    const solvedValue = solveValue(param);
+  functionDefinition.params.forEach((param, index) => {
     marieCodeBuilder
-      .comment(`Set param ${variableName}`)
-      .copy(solvedValue, { indirect: $StackPointer })
-      .copy({ direct: $StackPointer }, { direct: variableName })
+      .comment(`Set param ${param.name}`)
+      .copy(evaluatedParams[index], { indirect: $StackPointer })
+      .copy({ direct: $StackPointer }, { direct: param.name })
       .increment({ direct: $StackPointer });
   });
 
@@ -148,24 +150,20 @@ const declareVariable = (name: string, arraySize?: Value) => {
   ) {
     localVariables[functionName].push({
       name,
-      arraySize: arraySize ? solveValue(arraySize) : undefined,
+      arraySize: arraySize ? evaluate(arraySize) : undefined,
     });
     marieCodeBuilder
       .comment(`Declare variable ${name}`)
       .copy({ direct: $StackPointer }, { direct: name });
-    if (!arraySize) {
-      marieCodeBuilder.increment({ direct: $StackPointer });
-    } else {
-      const solvedArraySize = solveValue(arraySize);
-      marieCodeBuilder
-        .load({ direct: $StackPointer })
-        .add(solvedArraySize)
-        .store({ direct: $StackPointer });
-    }
+    const incrementStackBy = arraySize ? evaluate(arraySize) : { literal: 1 };
+    marieCodeBuilder
+      .load({ direct: $StackPointer })
+      .add(incrementStackBy)
+      .store({ direct: $StackPointer });
   }
 };
 
-const solveValue = (value: Value): VariableType => {
+const evaluate = (value: Value): VariableType => {
   if (value.variable !== undefined) {
     marieCodeBuilder.comment(`Load variable ${value.variable}`);
     // If value is an array or is preceded by &, reference its address
@@ -187,7 +185,7 @@ const solveValue = (value: Value): VariableType => {
 
     // If getting array at position N, skip N items from array address
     if (value.arrayPosition) {
-      const positionsToSkip = solveValue(value.arrayPosition);
+      const positionsToSkip = evaluate(value.arrayPosition);
       const loadType = variableDefinition ? "direct" : "indirect";
       marieCodeBuilder
         .load({ [loadType]: value.variable })
@@ -223,8 +221,8 @@ const solveValue = (value: Value): VariableType => {
   }
   if (value.expression !== undefined) {
     const { firstOperand, operator, secondOperand } = value.expression;
-    const a = solveValue(firstOperand);
-    const b = solveValue(secondOperand);
+    const a = evaluate(firstOperand);
+    const b = evaluate(secondOperand);
     if (operator === "+") {
       marieCodeBuilder.load(a).add(b).store({ direct: ExpressionResult });
     }
@@ -339,9 +337,9 @@ export const compileForMarieAssemblyLanguage = (
           declareVariable(name, arraySize);
         }
         if (value) {
-          const solvedValue = solveValue(value);
+          const valueVariable = evaluate(value);
           const positionsToSkip = arrayPosition
-            ? solveValue(arrayPosition)
+            ? evaluate(arrayPosition)
             : undefined;
           marieCodeBuilder.comment(`Assign value to variable ${name}`);
           const loadType =
@@ -360,9 +358,9 @@ export const compileForMarieAssemblyLanguage = (
               .load({ direct: variableName })
               .add(positionsToSkip)
               .store({ direct: Tmp })
-              .copy(solvedValue, { indirect: Tmp });
+              .copy(valueVariable, { indirect: Tmp });
           } else {
-            marieCodeBuilder.copy(solvedValue, { indirect: variableName });
+            marieCodeBuilder.copy(valueVariable, { indirect: variableName });
           }
         }
         break;
@@ -371,7 +369,7 @@ export const compileForMarieAssemblyLanguage = (
         const { value } = line as Return;
         marieCodeBuilder
           .comment("Store return value")
-          .copy(solveValue(value), { direct: ExpressionResult })
+          .copy(evaluate(value), { direct: ExpressionResult })
           .jnS("popFromCallStack");
         jumpToReturnAddress();
         break;
@@ -388,7 +386,7 @@ export const compileForMarieAssemblyLanguage = (
         marieCodeBuilder
           .label(`#block${blockCount}`)
           .clear()
-          .load(solveValue(valueObject))
+          .load(evaluate(valueObject))
           .subt({ literal: 1 })
           .skipIfCondition("equal")
           .jump(`#block${blockCount}finally`);

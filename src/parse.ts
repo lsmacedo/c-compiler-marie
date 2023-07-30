@@ -71,15 +71,15 @@ const expressionTypes = {
           .split(",")
           .map((param) => {
             const matches = param.match(
-              /^\s*(?<type>int)\s*(?<name>[^\s\[]+)\s*(\[[^\]]*\])?\s*$/
+              /^\s*(?<type>int)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(\[[^\]]*\])?\s*$/
             );
             if (!matches) {
               throw new Error("Invalid syntax");
             }
             return {
               type: matches[1],
-              name: matches[2],
-              isArray: matches[3] !== undefined,
+              name: matches[3],
+              isArray: matches[4] !== undefined,
             };
           })
           .filter((param) => param);
