@@ -1,5 +1,6 @@
 export type Value = {
   literal?: any;
+  elements?: any[];
   functionCall?: FunctionCall;
   variable?: string;
   arrayPosition?: Value;
@@ -14,6 +15,7 @@ export type VariableAssignment = {
   type?: string;
   pointerOperation?: boolean;
   name: string;
+  isArray?: boolean;
   arraySize?: Value;
   arrayPosition?: Value;
   value?: Value;
@@ -22,9 +24,11 @@ export type VariableAssignment = {
 export type FunctionDefinition = {
   type: string;
   name: string;
+  isPointer: boolean;
   params: {
     type: string;
     name: string;
+    isPointer: boolean;
     isArray: boolean;
   }[];
 };
@@ -45,7 +49,7 @@ export type Operation = {
 };
 
 export type Return = {
-  value: Value;
+  value?: Value;
 };
 
 export type Block = {

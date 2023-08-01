@@ -44,6 +44,43 @@ const parseValue = (value: string): Value => {
   throw new Error(`Unable to parse value ${value}`);
 };
 
+// Parser for function definition parameters
+const parseFunctionDefinitionParameters = (
+  params: string
+): FunctionDefinition["params"] => {
+  if (!params) {
+    return [] as FunctionDefinition["params"];
+  }
+  const regex =
+    /^\s*(?<type>int|char|void)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(\[[^\]]*\])?\s*$/;
+  return params
+    .split(",")
+    .map((param) => {
+      const matches = param.match(regex)!;
+      return {
+        type: matches[1],
+        name: matches[3],
+        isPointer: matches[2] !== undefined,
+        isArray: matches[4] !== undefined,
+      };
+    })
+    .filter((param) => param);
+};
+
+// Parser for function call parameters
+const parseFunctionCallParameters = (
+  params: string
+): FunctionCall["params"] => {
+  // Following regex is not yet bullet-proof and might fail with the
+  // string "x, y, func(x, y, func2(x, y), x, y)" because the comma
+  // after func2(x, y) is matched.
+  const splitRegex = /(?<!.+?\([^)]+),/g;
+  return params
+    .split(splitRegex)
+    .map((param) => parseValue(param.trim()))
+    .filter((param) => param);
+};
+
 /**
  * Regular expressions and functions to identify the type of each expression and
  * get the necessary information from them.
@@ -52,61 +89,39 @@ const expressionTypes = {
   // Function definition
   functionDefinition: {
     regex:
-      /^\s*(?<type>int|void)\s*(?<name>[^\s]+)\s*\(\s*(?<params>.+?)?\s*\)\s*{\s*$/,
+      /^\s*(?<type>int|char|void)\s*(?<pointer>\*)?\s*(?<name>[^\s]+)\s*\(\s*(?<params>.+?)?\s*\)\s*{\s*$/,
     parser: (matches: string[]): FunctionDefinition => {
-      const [_, type, name, paramsString] = matches;
-      let params: FunctionDefinition["params"] = [];
-      if (paramsString) {
-        params = paramsString
-          .split(",")
-          .map((param) => {
-            const matches = param.match(
-              /^\s*(?<type>int)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(\[[^\]]*\])?\s*$/
-            );
-            if (!matches) {
-              throw new Error("Invalid syntax");
-            }
-            return {
-              type: matches[1],
-              name: matches[3],
-              isArray: matches[4] !== undefined,
-            };
-          })
-          .filter((param) => param);
-      }
-      return { type, name, params };
+      const [_, type, pointer, name, params] = matches;
+      return {
+        type,
+        isPointer: pointer !== undefined,
+        name,
+        params: parseFunctionDefinitionParameters(params),
+      };
     },
   },
   // Function call
   functionCall: {
     regex: /^\s*(?<name>[^\s]+?)\s*\(\s*(?<params>[^)]+?)?\s*\)\s*;?$/,
     parser: (matches: RegExpMatchArray): FunctionCall => {
-      const [_, name, paramsString] = matches;
-      let params: Value[] = [];
-      if (paramsString) {
-        params = paramsString
-          // Following regex is not yet bullet-proof and might fail with the
-          // string "x, y, func(x, y, func2(x, y), x, y)" because the comma
-          // after func2(x, y) is matched.
-          .split(/(?<!.+?\([^)]+),/g)
-          .map((param) => parseValue(param.trim()))
-          .filter((param) => param);
-      }
-      return { name, params };
+      const [_, name, params] = matches;
+      return { name, params: parseFunctionCallParameters(params) };
     },
   },
   // Variable declaration, with or without a value assignment
   variableDeclaration: {
     regex:
-      /^\s*(?<type>int)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+?)\s*(?<array>\[[^\]]+\])?\s*(?:\=\s*(?<value>.+?))?\s*;?\s*$/,
+      /^\s*(?<type>int|char|void)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+?)\s*(?<array>\[[^\]]*?\])?\s*(?:\=\s*(?<value>.+?))?\s*;?\s*$/,
     parser: (matches: string[]): VariableAssignment => {
       const [_, type, pointer, name, array, value] = matches;
       return {
         type,
         name,
-        arraySize: array
-          ? parseValue(array.substring(1, array.length - 1))
-          : undefined,
+        isArray: array !== undefined,
+        arraySize:
+          array?.length > 2
+            ? parseValue(array.substring(1, array.length - 1))
+            : undefined,
         value: value ? parseValue(value) : undefined,
       };
     },
@@ -129,10 +144,10 @@ const expressionTypes = {
   },
   // Function return
   return: {
-    regex: /^\s*return\s*([^;]+?)?\s*;?\s*$/,
+    regex: /^\s*return\s*([^;]*?)?\s*;?\s*$/,
     parser: (matches: string[]): Return => {
       const [_, valueString] = matches;
-      return { value: parseValue(valueString) };
+      return { value: valueString ? parseValue(valueString) : undefined };
     },
   },
   // A block, which may or may not follow an If statement or a loop
@@ -159,16 +174,19 @@ const expressionTypes = {
   },
   // Literal
   literal: {
-    regex: /^\s*([0-9]+)\s*;?\s*$/,
+    regex: /^\s*(?:(?<int>[0-9]+)|'(?<char>[^']?|\\[^'])')\s*;?\s*$/,
     parser: (matches: string[]): Value => {
-      const [_, value] = matches;
-      return { literal: value };
+      const [_, int, char] = matches;
+      if (int !== undefined || char !== undefined) {
+        return { literal: int !== undefined ? int : char.charCodeAt(0) };
+      }
+      throw new Error("Error parsing literal");
     },
   },
   // Variable
   variable: {
     regex:
-      /^\s*(?<prefix>\+\+|--|-)?\s*(?<pointer>&|\*)?\s*(?<variable>[^0-9^\s()\+\-\*\/\[\]{}&][^\s()\+\-\*\/\[\]{}&]*)\s*(?:\[(?<array>[^\]]+)\])?\s*(?<postfix>\+\+)?\s*;?\s*$/,
+      /^\s*(?<prefix>\+\+|--|-)?\s*(?<pointer>&|\*)?\s*(?<variable>[^0-9^\s()\+\-\*\/\[\]{}&][^\s()\+\-\*\/\[\]{}&]*)\s*(?:\[(?<array>[^\]]+)\])?\s*(?<postfix>\+\+|--)?\s*;?\s*$/,
     parser: (matches: string[]): Value => {
       const [_, prefix, pointer, variable, arrayPosition, postfix] = matches;
       return {
@@ -184,7 +202,7 @@ const expressionTypes = {
   // Arithmetic expression
   arithmetic: {
     regex:
-      /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|[^\s]+)\s*(?<operator>[+\-\*\/])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|[^\s]+)\s*(?<operator>[+\-\*\/%])\s*(?<secondOperand>.+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);
