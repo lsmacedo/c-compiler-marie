@@ -9,6 +9,7 @@ export const evaluateExpression = (value: Value) => {
     throw new Error("Expression is undefined");
   }
 
+  console.log(value.expression);
   const { firstOperand, operator, secondOperand } = value.expression;
   const a = evaluate(firstOperand);
   const b = evaluate(secondOperand);
@@ -37,6 +38,38 @@ export const evaluateExpression = (value: Value) => {
       .copy({ literal: 1 }, { direct: MATH_ARG_2 })
       .jnS(DIVIDE);
     return { direct: MATH_RESULT };
+  }
+  if (operator === "&&") {
+    const conditionId = `#condition${counters.conditionCount++}`;
+    marieCodeBuilder
+      .copy({ literal: 0 }, { direct: EVALUATE_RESULT })
+      .load(a)
+      .skipIfCondition("greaterThan")
+      .jump(`${conditionId}-finally`)
+      .load(b)
+      .skipIfCondition("greaterThan")
+      .jump(`${conditionId}-finally`)
+      .copy({ literal: 1 }, { direct: EVALUATE_RESULT })
+      .label(`${conditionId}-finally`)
+      .clear();
+    return { direct: EVALUATE_RESULT };
+  }
+  if (operator === "||") {
+    const conditionId = `#condition${counters.conditionCount++}`;
+    marieCodeBuilder
+      .copy({ literal: 1 }, { direct: EVALUATE_RESULT })
+      .load(a)
+      .subt({ literal: 1 })
+      .skipIfCondition("lessThan")
+      .jump(`${conditionId}-finally`)
+      .load(b)
+      .subt({ literal: 1 })
+      .skipIfCondition("lessThan")
+      .jump(`${conditionId}-finally`)
+      .copy({ literal: 0 }, { direct: EVALUATE_RESULT })
+      .label(`${conditionId}-finally`)
+      .clear();
+    return { direct: EVALUATE_RESULT };
   }
   if (["==", "!=", ">", "<", ">=", "<="].includes(operator)) {
     const condition = (() => {

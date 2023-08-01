@@ -18,6 +18,7 @@ const parseValue = (value: string): Value => {
     functionCall,
     arithmetic,
     relational,
+    logical,
     literal,
     string,
     array,
@@ -49,6 +50,11 @@ const parseValue = (value: string): Value => {
   if (functionCall.regex.test(value)) {
     const { regex, parser } = functionCall;
     return { functionCall: parser(value.match(regex)!) };
+  }
+  // Logical operator (e.g. x || y)
+  if (logical.regex.test(value)) {
+    const { regex, parser } = logical;
+    return { expression: parser(value.match(regex)!) };
   }
   // Relational expression (e.g. x == 5)
   if (relational.regex.test(value)) {
@@ -253,10 +259,10 @@ const expressionTypes = {
       };
     },
   },
-  // Arithmetic expression
-  arithmetic: {
+  // Logical operators
+  logical: {
     regex:
-      /^\s*(?<firstOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*(?<operator>[+\-\*\/%])\s*(?<secondOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|.+?)\s*(?<operator>&&|\|\|)\s*(?<secondOperand>.+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);
@@ -268,6 +274,17 @@ const expressionTypes = {
   relational: {
     regex:
       /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|[^\s]+)\s*(?<operator>\>=|\<=|==|!=|[><])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+    parser: (matches: RegExpMatchArray): Operation => {
+      const [_, firstOperandString, operator, secondOperandString] = matches;
+      const firstOperand = parseValue(firstOperandString);
+      const secondOperand = parseValue(secondOperandString);
+      return { firstOperand, operator, secondOperand };
+    },
+  },
+  // Arithmetic expression
+  arithmetic: {
+    regex:
+      /^\s*(?<firstOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*(?<operator>[+\-\*\/%])\s*(?<secondOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);
