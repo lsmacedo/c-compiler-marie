@@ -19,6 +19,7 @@ int main()
 
   // Pointer
   int *pointer = &x;
+  print(*pointer);
   print(-*pointer);
   print(--*pointer);
   print(*pointer);

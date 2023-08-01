@@ -1,6 +1,6 @@
 export type Value = {
   literal?: any;
-  elements?: any[];
+  elements?: Value[];
   functionCall?: FunctionCall;
   variable?: string;
   arrayPosition?: Value;

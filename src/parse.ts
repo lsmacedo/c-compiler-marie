@@ -14,11 +14,28 @@ import {
  * Recursively parse a string into the Value type.
  */
 const parseValue = (value: string): Value => {
-  const { functionCall, arithmetic, relational, literal, variable } =
-    expressionTypes;
+  const {
+    functionCall,
+    arithmetic,
+    relational,
+    literal,
+    string,
+    array,
+    variable,
+  } = expressionTypes;
   // Literal value (e.g. 5)
   if (literal.regex.test(value)) {
     const { regex, parser } = literal;
+    return parser(value.match(regex)!);
+  }
+  // String value (e.g. "str")
+  if (string.regex.test(value)) {
+    const { regex, parser } = string;
+    return parser(value.match(regex)!);
+  }
+  // Array value (e.g. { 1, 2, 3 })
+  if (array.regex.test(value)) {
+    const { regex, parser } = array;
     return parser(value.match(regex)!);
   }
   // Variable (e.g. x)
@@ -49,7 +66,7 @@ const parseFunctionDefinitionParameters = (
   params: string
 ): FunctionDefinition["params"] => {
   if (!params) {
-    return [] as FunctionDefinition["params"];
+    return [];
   }
   const regex =
     /^\s*(?<type>int|char|void)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(\[[^\]]*\])?\s*$/;
@@ -71,9 +88,10 @@ const parseFunctionDefinitionParameters = (
 const parseFunctionCallParameters = (
   params: string
 ): FunctionCall["params"] => {
-  // Following regex is not yet bullet-proof and might fail with the
-  // string "x, y, func(x, y, func2(x, y), x, y)" because the comma
-  // after func2(x, y) is matched.
+  if (!params) {
+    return [];
+  }
+  // Following regex is not yet bullet-proof and might fail
   const splitRegex = /(?<!.+?\([^)]+),/g;
   return params
     .split(splitRegex)
@@ -183,10 +201,27 @@ const expressionTypes = {
       throw new Error("Error parsing literal");
     },
   },
+  // String
+  string: {
+    regex: /^\s*"(?<string>[^"]*)"\s*;?\s*$/,
+    parser: (matches: string[]): Value => {
+      const [_, string] = matches;
+      const elements = string.split("").map((char) => char.charCodeAt(0));
+      return { elements: [...elements, 0].map((el) => ({ literal: el })) };
+    },
+  },
+  // Array
+  array: {
+    regex: /^\s*\[([^\]]+)]\s*;?\s*$/,
+    parser: (matches: string[]): Value => {
+      const [_, array] = matches;
+      return { elements: array.split(",").map((value) => parseValue(value)) };
+    },
+  },
   // Variable
   variable: {
     regex:
-      /^\s*(?<prefix>\+\+|--|-)?\s*(?<pointer>&|\*)?\s*(?<variable>[^0-9^\s()\+\-\*\/\[\]{}&][^\s()\+\-\*\/\[\]{}&]*)\s*(?:\[(?<array>[^\]]+)\])?\s*(?<postfix>\+\+|--)?\s*;?\s*$/,
+      /^\s*(?<prefix>\+\+|--|-)?\s*(?<pointer>&|\*)?\s*(?<variable>[^0-9^\s()\+\-\*\/\[\]{}&;][^\s()\+\-\*\/\[\]{}&;]*)\s*(?:\[(?<array>[^\]]+)\])?\s*(?<postfix>\+\+|--)?\s*;?\s*$/,
     parser: (matches: string[]): Value => {
       const [_, prefix, pointer, variable, arrayPosition, postfix] = matches;
       return {
@@ -247,6 +282,8 @@ export const parseCode = (code: string): Expression[] => {
     .replace(/\n/g, " ") // Remove line breaks
     .replace(/(\/\*.*\*\/)/g, "") // Remove multi-line comments
     .replace(/(?<=\s*for\s*\([^\)]+);/g, ",") // Replace semicolons inside For statements with commas
+    .replace(/(?<==\s*{[^}]*?)}/g, "]") // Temporary: Replace open curly brackets by brackets if following =
+    .replace(/(?<==\s*){/g, "[") // Temporary: Replace open curly brackets by brackets if following =
     .match(/(.*?[;{}])/g)! // Split expressions by curly brackets and semicolons
     .map((line) => parseExpression(line))
     .filter(({ expressionType: opType }) => opType);
