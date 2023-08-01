@@ -12,11 +12,9 @@ export const evaluateFunctionCall = (value: Value) => {
   marieCodeBuilder.comment(`Load function call ${value.functionCall.name}`);
   const { name, params } = value.functionCall;
   performFunctionCall(name, params);
-  const variableName = `${FUNCTION_RETURN}${counters.fnReturnCount++}`;
-  declareVariable(variableName);
-  marieCodeBuilder.copy(
-    { direct: FUNCTION_RETURN },
-    { indirect: variableName }
+  const response = declareVariable(
+    `${FUNCTION_RETURN}${counters.fnReturnCount++}`
   );
-  return { indirect: variableName };
+  marieCodeBuilder.copy({ direct: FUNCTION_RETURN }, { indirect: response });
+  return { indirect: response };
 };

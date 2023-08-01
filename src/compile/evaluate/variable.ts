@@ -3,7 +3,68 @@ import { Value } from "../../types";
 import { declareVariable, getVariableDefinition } from "../stack";
 import { counters, marieCodeBuilder } from "../state";
 
+const evaluatePrefix = (prefix: Value["prefix"]) => {
+  if (!prefix) {
+    throw new Error("Prefix is undefined");
+  }
+
+  const evaluatedValue = evaluate(prefix.value);
+
+  if (["++", "--"].includes(prefix.operator)) {
+    marieCodeBuilder
+      .load(evaluatedValue)
+      .add({ literal: prefix.operator === "++" ? 1 : -1 })
+      .store(evaluatedValue);
+    return evaluatedValue;
+  }
+  if (prefix.operator === "-") {
+    const response = declareVariable(
+      `${EVALUATE_RESULT}${counters.fnReturnCount++}`
+    );
+    marieCodeBuilder
+      .copy(evaluatedValue, { direct: TMP })
+      .load({ literal: 0 })
+      .subt({ direct: TMP })
+      .store({ direct: response });
+    return { direct: response };
+  }
+  if (prefix.operator === "*") {
+    const response = declareVariable(
+      `${EVALUATE_RESULT}${counters.fnReturnCount++}`
+    );
+    marieCodeBuilder.copy(evaluatedValue, { direct: response });
+    return { indirect: response };
+  }
+
+  throw new Error("Invalid prefix type");
+};
+
+const evaluatePostfix = (postfix: Value["postfix"]) => {
+  if (!postfix) {
+    throw new Error("Postfix is undefined");
+  }
+
+  const response = declareVariable(
+    `${EVALUATE_RESULT}${counters.fnReturnCount++}`
+  );
+  const evaluatedValue = evaluate(postfix.value);
+
+  marieCodeBuilder
+    .copy(evaluatedValue, { direct: response })
+    .add({ literal: postfix.operator === "++" ? 1 : -1 })
+    .store(evaluatedValue);
+  return { direct: response };
+};
+
 export const evaluateVariable = (value: Value) => {
+  if (value.prefix) {
+    return evaluatePrefix(value.prefix);
+  }
+
+  if (value.postfix) {
+    return evaluatePostfix(value.postfix);
+  }
+
   if (value.variable === undefined) {
     throw new Error("Variable is undefined");
   }
@@ -14,70 +75,24 @@ export const evaluateVariable = (value: Value) => {
   const variableDefinition = getVariableDefinition(value.variable);
   const returnType =
     (variableDefinition?.arraySize && !value.arrayPosition) ||
-    value.addressOperation ||
-    value.postfix ||
-    value.prefix === "-"
+    value.isAddressOperation
       ? "direct"
       : "indirect";
 
-  // If a new variable is required, set it into returnVariable
-  let returnVariable = value.variable;
-  if (
-    value.arrayPosition ||
-    value.pointerOperation ||
-    value.postfix ||
-    value.prefix === "-"
-  ) {
-    const variableName = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
-    declareVariable(variableName);
-    returnVariable = variableName;
-    marieCodeBuilder.copy({ direct: value.variable }, { direct: variableName });
-  }
+  let response = value.variable;
 
-  // If getting array at position N, skip N items from array address
+  // If a new variable is required, set it into returnVariable
   if (value.arrayPosition) {
+    response = declareVariable(`${EVALUATE_RESULT}${counters.fnReturnCount++}`);
+    marieCodeBuilder.copy({ direct: value.variable }, { direct: response });
+
     const positionsToSkip = evaluate(value.arrayPosition);
     const loadType = variableDefinition ? "direct" : "indirect";
     marieCodeBuilder
-      .load({ [loadType]: returnVariable })
+      .load({ [loadType]: response })
       .add(positionsToSkip)
-      .store({ direct: returnVariable });
+      .store({ direct: response });
   }
 
-  // Apply postfix
-  const unaryOperator = value.prefix || value.postfix;
-  if (value.postfix) {
-    marieCodeBuilder
-      .copy({ indirect: returnVariable }, { direct: TMP })
-      .load({ indirect: returnVariable })
-      .add({ literal: unaryOperator === "++" ? 1 : -1 })
-      .store({ indirect: returnVariable })
-      .copy({ direct: TMP }, { direct: returnVariable });
-  }
-
-  // If using the * operator, get indirect value from pointer
-  if (value.pointerOperation) {
-    marieCodeBuilder.copy(
-      { indirect: returnVariable },
-      { direct: returnVariable }
-    );
-  }
-
-  // Apply prefix
-  if (value.prefix && ["++", "--"].includes(value.prefix)) {
-    marieCodeBuilder
-      .load({ indirect: returnVariable })
-      .add({ literal: unaryOperator === "++" ? 1 : -1 })
-      .store({ indirect: returnVariable });
-  }
-  if (value.prefix === "-") {
-    marieCodeBuilder
-      .copy({ indirect: returnVariable }, { direct: TMP })
-      .load({ literal: 0 })
-      .subt({ direct: TMP })
-      .store({ direct: returnVariable });
-  }
-
-  // TODO: apply prefix before and/or after *
-  return { [returnType]: returnVariable };
+  return { [returnType]: response };
 };

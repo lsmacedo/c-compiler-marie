@@ -10,7 +10,11 @@ export const EVALUATE_RESULT = "$ExpressionResult";
 export const TMP = "$Tmp";
 
 export const evaluate = (value: Value): VariableType => {
-  if (value.variable !== undefined) {
+  if (
+    value.variable !== undefined ||
+    value.prefix !== undefined ||
+    value.postfix !== undefined
+  ) {
     return evaluateVariable(value);
   }
   if (value.literal !== undefined) {

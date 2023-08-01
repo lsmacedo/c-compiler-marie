@@ -1,7 +1,7 @@
 import { Value } from "../../types";
 import { TMP, evaluate } from "../evaluate";
 import { getFunctionDefinition, marieCodeBuilder, scopes } from "../state";
-import { STACK_POINTER } from "./procedures";
+import { FRAME_POINTER, STACK_POINTER } from "./procedures";
 import { PUSH_TO_CALL_STACK } from "./procedures/pushToCallStack";
 
 export const localVariables = {} as {
@@ -40,6 +40,7 @@ export const declareVariable = (name: string, arraySize?: Value) => {
       .add(incrementStackBy)
       .store({ direct: STACK_POINTER });
   }
+  return name;
 };
 
 export const performFunctionCall = (functionName: string, params: Value[]) => {
@@ -121,4 +122,17 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
       marieCodeBuilder.comment("Resume function execution");
     }
   }
+};
+
+export const jumpToReturnAddress = () => {
+  const currentFunction = getFunctionDefinition(currentFunctionName());
+  marieCodeBuilder
+    .comment("Jump to return address")
+    .load({ direct: FRAME_POINTER })
+    .add({ literal: 1 })
+    .store({ direct: TMP })
+    .load({ indirect: TMP })
+    .add({ literal: currentFunction.params.length })
+    .store({ direct: TMP })
+    .jumpI(TMP);
 };

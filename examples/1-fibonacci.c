@@ -1,8 +1,7 @@
 int main()
 {
-  // The scan and print functions used here are simpler versions of scanf and
-  // printf, since strings aren't implemented yet.
-  int input = scan();
+  int input;
+  scan(&input);
   int x = recursive(input);
   int y = iterative(input);
   print(x);

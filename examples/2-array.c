@@ -1,10 +1,11 @@
 int main()
 {
-  int arraySize = scan();
+  int arraySize;
+  scan(&arraySize);
   int array[arraySize];
   for (int i = 0; i < arraySize; i++)
   {
-    array[i] = scan();
+    scan(&array[i]);
   }
   int sum = arrayElementsSum(array, arraySize);
   print(sum);

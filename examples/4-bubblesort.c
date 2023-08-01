@@ -1,12 +1,13 @@
 int main()
 {
-  int size = scan();
+  int size;
+  scan(&size);
   int array[size];
   int i;
 
   for (i = 0; i < size; i++)
   {
-    array[i] = scan();
+    scan(&array[i]);
   }
 
   bubbleSort(array, size);

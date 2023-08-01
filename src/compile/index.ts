@@ -22,17 +22,12 @@ import {
 } from "./stack/procedures/popFromCallStack";
 import { initMath } from "./evaluate/procedures";
 import { declareDivide } from "./evaluate/procedures/divide";
-import {
-  counters,
-  expressions,
-  getFunctionDefinition,
-  marieCodeBuilder,
-  scopes,
-} from "./state";
+import { counters, expressions, marieCodeBuilder, scopes } from "./state";
 import {
   currentFunctionName,
   declareVariable,
   getVariableDefinition,
+  jumpToReturnAddress,
   performFunctionCall,
 } from "./stack";
 import { evaluate } from "./evaluate";
@@ -40,19 +35,6 @@ import { FUNCTION_RETURN } from "./evaluate/functionCall";
 
 const START_POSITION = 100;
 const Tmp = "Tmp";
-
-const jumpToReturnAddress = () => {
-  const currentFunction = getFunctionDefinition(currentFunctionName());
-  marieCodeBuilder
-    .comment("Jump to return address")
-    .load({ direct: FRAME_POINTER })
-    .add({ literal: 1 })
-    .store({ direct: Tmp })
-    .load({ indirect: Tmp })
-    .add({ literal: currentFunction.params.length })
-    .store({ direct: Tmp })
-    .jumpI(Tmp);
-};
 
 const compileExpression = (expression: Expression) => {
   switch (expression.expressionType) {
@@ -78,7 +60,7 @@ const compileExpression = (expression: Expression) => {
         value,
       } = expression as VariableAssignment;
       if (type) {
-        if (isArray) {
+        if (isArray || (pointerOperation && value?.elements)) {
           if (!arraySize && !value?.elements) {
             throw new Error(`Array size missing in ${name}`);
           }
@@ -184,6 +166,8 @@ const compileExpression = (expression: Expression) => {
       break;
     }
     case "literal":
+    case "prefix":
+    case "postfix":
     case "variable": {
       evaluate(expression as Value);
       break;

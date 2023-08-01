@@ -22,6 +22,8 @@ const parseValue = (value: string): Value => {
     string,
     array,
     variable,
+    prefix,
+    postfix,
   } = expressionTypes;
   // Literal value (e.g. 5)
   if (literal.regex.test(value)) {
@@ -57,6 +59,16 @@ const parseValue = (value: string): Value => {
   if (arithmetic.regex.test(value)) {
     const { regex, parser } = arithmetic;
     return { expression: parser(value.match(regex)!) };
+  }
+  // Prefix to a value (e.g. ++x or ++*x or *++x)
+  if (prefix.regex.test(value)) {
+    const { regex, parser } = prefix;
+    return parser(value.match(regex)!);
+  }
+  // Postfix to a value (e.g. x++)
+  if (postfix.regex.test(value)) {
+    const { regex, parser } = postfix;
+    return parser(value.match(regex)!);
   }
   throw new Error(`Unable to parse value ${value}`);
 };
@@ -98,6 +110,16 @@ const parseFunctionCallParameters = (
     .map((param) => parseValue(param.trim()))
     .filter((param) => param);
 };
+
+/*
+{
+  expressionType: 'Value',
+  prefix: {
+    operator: '++',
+    variable: Value
+  }
+}
+*/
 
 /**
  * Regular expressions and functions to identify the type of each expression and
@@ -221,23 +243,20 @@ const expressionTypes = {
   // Variable
   variable: {
     regex:
-      /^\s*(?<prefix>\+\+|--|-)?\s*(?<pointer>&|\*)?\s*(?<variable>[^0-9^\s()\+\-\*\/\[\]{}&;][^\s()\+\-\*\/\[\]{}&;]*)\s*(?:\[(?<array>[^\]]+)\])?\s*(?<postfix>\+\+|--)?\s*;?\s*$/,
+      /^\s*(?<pointer>&)?\s*(?<variable>[^0-9^\s()\+\-\*\/\[\]{}&;][^\s()\+\-\*\/\[\]{}&;]*)\s*(?:\[(?<array>[^\]]+)\])?\s*;?\s*$/,
     parser: (matches: string[]): Value => {
-      const [_, prefix, pointer, variable, arrayPosition, postfix] = matches;
+      const [_, pointer, variable, arrayPosition] = matches;
       return {
-        prefix,
-        addressOperation: pointer === "&",
-        pointerOperation: pointer === "*",
         variable,
+        isAddressOperation: pointer === "&",
         arrayPosition: arrayPosition ? parseValue(arrayPosition) : undefined,
-        postfix,
       };
     },
   },
   // Arithmetic expression
   arithmetic: {
     regex:
-      /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|[^\s]+)\s*(?<operator>[+\-\*\/%])\s*(?<secondOperand>.+?)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*(?<operator>[+\-\*\/%])\s*(?<secondOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);
@@ -254,6 +273,20 @@ const expressionTypes = {
       const firstOperand = parseValue(firstOperandString);
       const secondOperand = parseValue(secondOperandString);
       return { firstOperand, operator, secondOperand };
+    },
+  },
+  prefix: {
+    regex: /^\s*(?<operator>\+\+|--|-|&|\*)\s*(?<value>[^\s]+?)\s*;?\s*?$/,
+    parser: (matches: RegExpMatchArray): Value => {
+      const [_, operator, value] = matches;
+      return { prefix: { operator, value: parseValue(value) } };
+    },
+  },
+  postfix: {
+    regex: /^\s*(?<value>[^\s]+?)\s*(?<operator>\+\+|--|-)\s*;?\s*?$/,
+    parser: (matches: RegExpMatchArray): Value => {
+      const [_, value, operator] = matches;
+      return { postfix: { operator, value: parseValue(value) } };
     },
   },
   // End of a block

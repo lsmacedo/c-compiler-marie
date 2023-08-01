@@ -4,11 +4,16 @@ export type Value = {
   functionCall?: FunctionCall;
   variable?: string;
   arrayPosition?: Value;
-  addressOperation?: boolean;
-  pointerOperation?: boolean;
+  isAddressOperation?: boolean;
   expression?: Operation;
-  prefix?: string;
-  postfix?: string;
+  prefix?: {
+    operator: string;
+    value: Value;
+  };
+  postfix?: {
+    operator: string;
+    value: Value;
+  };
 };
 
 export type VariableAssignment = {

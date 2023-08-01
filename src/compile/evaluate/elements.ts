@@ -8,15 +8,17 @@ export const evaluateElements = (value: Value) => {
     throw new Error("Elements is undefined");
   }
 
-  const variableName = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
-  declareVariable(variableName, { literal: value.elements.length });
+  const response = declareVariable(
+    `${EVALUATE_RESULT}${counters.fnReturnCount++}`,
+    { literal: value.elements.length }
+  );
 
-  marieCodeBuilder.copy({ direct: variableName }, { direct: TMP });
+  marieCodeBuilder.copy({ direct: response }, { direct: TMP });
   value.elements.forEach((el) => {
     marieCodeBuilder
       .copy(evaluate(el), { indirect: TMP })
       .increment({ direct: TMP });
   });
 
-  return { direct: variableName };
+  return { direct: response };
 };

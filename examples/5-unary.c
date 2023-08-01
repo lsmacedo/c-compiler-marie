@@ -9,8 +9,7 @@ int main()
   print(x);
 
   // Array item
-  int array[2];
-  array[1] = 5;
+  int array[] = {0, 5, 10};
   print(-array[1]);
   print(--array[1]);
   print(array[1]);
@@ -18,7 +17,7 @@ int main()
   print(array[1]);
 
   // Pointer
-  int *pointer = &x;
+  int *pointer = &array[1];
   print(*pointer);
   print(-*pointer);
   print(--*pointer);
