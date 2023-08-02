@@ -164,6 +164,7 @@ const expressionTypes = {
         type,
         name,
         isArray: array !== undefined,
+        pointerOperation: pointer !== undefined,
         arraySize:
           array?.length > 2
             ? parseValue(array.substring(1, array.length - 1))
