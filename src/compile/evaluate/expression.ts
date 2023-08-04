@@ -9,7 +9,6 @@ export const evaluateExpression = (value: Value) => {
     throw new Error("Expression is undefined");
   }
 
-  console.log(value.expression);
   const { firstOperand, operator, secondOperand } = value.expression;
   const a = evaluate(firstOperand);
   const b = evaluate(secondOperand);

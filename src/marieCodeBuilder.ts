@@ -1,5 +1,3 @@
-import { Value } from "./types";
-
 export type VariableType = {
   literal?: number;
   direct?: string;
@@ -51,6 +49,9 @@ export class Builder {
     return this;
   }
 
+  org(position: number) {
+    return this.write(`Org ${position}`);
+  }
   comment(str: string) {
     return this.write(`/ ${str}`);
   }
