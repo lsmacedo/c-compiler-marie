@@ -8,15 +8,16 @@ An extremely simple C compiler for [MARIE](https://marie.js.org/book.pdf) (Machi
 
 - Only a very small subset of C features is supported. It is still far from being able to compile a real-world program without modifications.
 - The compiler is still at a very early stage and many bugs can happen during parsing or code generation.
-- Applying optimizations to the generated code is not in scope for this project.
+- MARIE architecture supports 4K words of memory, which is a big limitation for the amount of instructions a program can have and how much space can be destined to the stack.
 
-### Status
+### Supported features
 
-- **Data types:** The only supported data type supported so far is `int`.
-- **Arrays:** One dimensional arrays are supported.
-- **Arithmetic Expressions:** Addition and subtraction are the only supported arithmetic expressions so far.
-- **Functions:** Function definitions and function calls are supported. Function parameters, return address and local variables are stored in the call stack. Recursion is supported.
-- **Control Flow:** Control flow can currently be achieved with `if`, `while` and `for` statements.
+- `int` and `char` data types
+- `+`, `-`, `/`, `%`, `++` and `--` arithmetic operators
+- `*` and `&` pointer operators
+- `{ }` syntax to initialize arrays
+- `""` syntax to initialize strings
+- `if`, `while` and `for` flow control statements
 
 ### Requirements
 
@@ -42,10 +43,16 @@ yarn install
 
 ### Usage
 
-To compile a `.c` file, use the `yarn compile` command, providing the input file as an argument. Example:
+To compile a `.c` file, use the `yarn compile` command with the following arguments:
+
+- `-f <file>` (Required): File to be compiled
+- `-o <file>`: Output file name (default: a.mas)
+- `-v`: verbose mode
+
+Example:
 
 ```shel
-yarn compile examples/1-fibonacci.c
+yarn compile -f examples/1-fibonacci.c
 ```
 
-The generated MARIE code is printed in the console, and can be executed in a simulator like this one: https://marie.js.org/
+The generated MARIE code is printed in the console and can be executed in a simulator like this one: https://marie.js.org/
