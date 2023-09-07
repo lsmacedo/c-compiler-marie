@@ -179,6 +179,15 @@ export class Builder {
     return this;
   }
 
+  getInstructionsCount() {
+    return (
+      this.code
+        .replace(/(\/.*)/g, "")
+        .split("\n")
+        .filter((a) => a.trim()).length + Object.keys(this.variables).length
+    );
+  }
+
   getCode() {
     const variables = Object.keys(this.variables).sort();
     const variableDeclarations = variables

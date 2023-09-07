@@ -43,8 +43,6 @@ import {
 } from "./stack/procedures/assignArrayValues";
 import { declareJumpToReturnAddress } from "./stack/procedures/jumpToReturnAddress";
 
-const START_POSITION = 100;
-
 const compileExpression = (expression: Expression) => {
   switch (expression.expressionType) {
     case "functionDefinition": {
@@ -189,12 +187,7 @@ export const compileForMarieAssemblyLanguage = (
   parsedExpressions: Expression[]
 ) => {
   // First command should be a function call to "main"
-  marieCodeBuilder
-    .org(START_POSITION)
-    .jnS(PUSH_TO_CALL_STACK)
-    .jnS("main")
-    .clear()
-    .halt();
+  marieCodeBuilder.jnS(PUSH_TO_CALL_STACK).jnS("main").clear().halt();
 
   expressions.push(...parsedExpressions);
   // Go through each expression
@@ -214,5 +207,7 @@ export const compileForMarieAssemblyLanguage = (
   initMath();
   declareDivide();
 
-  return marieCodeBuilder.getCode();
+  const code = marieCodeBuilder.getCode();
+  const instructionsCount = marieCodeBuilder.getInstructionsCount();
+  return `ORG ${(4096 - instructionsCount).toString(16)}\n${code}`;
 };

@@ -117,16 +117,6 @@ const parseFunctionCallParameters = (
     .filter((param) => param);
 };
 
-/*
-{
-  expressionType: 'Value',
-  prefix: {
-    operator: '++',
-    variable: Value
-  }
-}
-*/
-
 /**
  * Regular expressions and functions to identify the type of each expression and
  * get the necessary information from them.
