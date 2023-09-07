@@ -14,6 +14,7 @@ const args = yargs(hideBin(process.argv))
   .option("file", {
     alias: "f",
     type: "string",
+    array: true,
     demandOption: true,
   })
   .option("output", {
@@ -24,7 +25,10 @@ const args = yargs(hideBin(process.argv))
   .parseSync();
 
 // Read file
-const code = fs.readFileSync(args.file, "utf-8");
+let code = "";
+for (const file of args.file) {
+  code += "\n" + fs.readFileSync(file, "utf-8");
+}
 
 // Parse code
 const parsedCode = parseCode(code);
