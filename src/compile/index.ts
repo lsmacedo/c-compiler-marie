@@ -30,22 +30,43 @@ import {
   jumpToReturnAddress,
   performFunctionCall,
 } from "./stack";
-import { evaluate } from "./evaluate";
+import { TMP, evaluate } from "./evaluate";
 import { FUNCTION_RETURN } from "./evaluate/functionCall";
+import { declareDeclareVariable } from "./stack/procedures/declareVariable";
+import {
+  STORE_RETURN_ADDRESS,
+  declareStoreReturnAddress,
+} from "./stack/procedures/storeReturnAddress";
+import {
+  declareAssignArrayValues,
+  declareAssignNextArrayValue,
+} from "./stack/procedures/assignArrayValues";
+import { declareJumpToReturnAddress } from "./stack/procedures/jumpToReturnAddress";
 
 const START_POSITION = 100;
-const Tmp = "Tmp";
 
 const compileExpression = (expression: Expression) => {
   switch (expression.expressionType) {
     case "functionDefinition": {
-      const { name } = expression as FunctionDefinition;
+      const { name, params } = expression as FunctionDefinition;
       scopes.unshift(name);
+      marieCodeBuilder.procedure(name);
+
+      if (params.length) {
+        marieCodeBuilder.load({ indirect: FRAME_POINTER });
+        params.forEach((param) => {
+          marieCodeBuilder
+            .comment(`Set function param ${param.name}`)
+            .store({ direct: param.name })
+            .add({ literal: 1 })
+            .store({ direct: STACK_POINTER });
+        });
+      }
+
       marieCodeBuilder
-        .procedure(name)
         .comment("Store return address on stack frame")
-        .copy({ direct: name }, { indirect: STACK_POINTER })
-        .increment({ direct: STACK_POINTER });
+        .load({ direct: name })
+        .jnS(STORE_RETURN_ADDRESS);
       break;
     }
     case "variableDeclaration":
@@ -53,58 +74,49 @@ const compileExpression = (expression: Expression) => {
       const {
         type,
         pointerOperation,
-        isArray,
         name,
+        isArray,
         arraySize,
         arrayPosition,
         value,
       } = expression as VariableAssignment;
       if (type) {
-        if (isArray || (pointerOperation && value?.elements)) {
-          if (!arraySize && !value?.elements) {
-            throw new Error(`Array size missing in ${name}`);
-          }
-          declareVariable(
-            name,
-            arraySize ?? { literal: value!.elements!.length }
-          );
-        } else {
-          declareVariable(name);
-        }
+        // Do not allocate memory at this point when using an initializer list,
+        // as in the example: int arr[] = { 1, 2, 3 };
+        const skipMemoryAlloc = value?.elements !== undefined;
+        const evaluatedArraySize = arraySize ? evaluate(arraySize) : undefined;
+        declareVariable(
+          name,
+          isArray
+            ? evaluatedArraySize ?? { literal: value?.elements?.length }
+            : undefined,
+          skipMemoryAlloc
+        );
       }
-      if (value) {
-        if (value.elements) {
-          if (!type) {
-            throw new Error("Assignment to expression with array type");
-          }
-          // TODO: allow "char str[] = { 0 };" syntax to fill array
-          marieCodeBuilder.copy({ direct: name }, { direct: Tmp });
-          value.elements.forEach((el) => {
-            marieCodeBuilder
-              .copy(evaluate(el), { indirect: Tmp })
-              .increment({ direct: Tmp });
-          });
-          break;
-        }
+      if (value?.elements) {
+        const valueVariable = evaluate(value);
+        marieCodeBuilder.copy(valueVariable, { direct: name });
+      }
+      if (value && !value.elements) {
+        marieCodeBuilder.comment(`Assign value to variable ${name}`);
         const valueVariable = evaluate(value);
         const positionsToSkip = arrayPosition
           ? evaluate(arrayPosition)
           : undefined;
-        marieCodeBuilder.comment(`Assign value to variable ${name}`);
-        const loadType =
-          pointerOperation || (arrayPosition && !getVariableDefinition(name))
-            ? "indirect"
-            : "direct";
-        const variableName = loadType === "direct" ? name : Tmp;
-        if (loadType === "indirect") {
-          marieCodeBuilder.copy({ [loadType]: name }, { direct: variableName });
+
+        let variableName = name;
+        if (
+          (pointerOperation && !type) ||
+          (arrayPosition && !getVariableDefinition(name))
+        ) {
+          variableName = `$TMP_${counters.tmp++}`;
+          marieCodeBuilder.copy({ indirect: name }, { direct: variableName });
         }
+
         if (positionsToSkip) {
           marieCodeBuilder
-            .load({ direct: variableName })
-            .add(positionsToSkip)
-            .store({ direct: Tmp })
-            .copy(valueVariable, { indirect: Tmp });
+            .add({ direct: variableName }, positionsToSkip, variableName)
+            .copy(valueVariable, { indirect: variableName });
         } else {
           marieCodeBuilder.copy(valueVariable, { indirect: variableName });
         }
@@ -115,7 +127,6 @@ const compileExpression = (expression: Expression) => {
       const { value } = expression as Return;
       if (value !== undefined) {
         marieCodeBuilder
-          .comment("Store return value")
           .copy(evaluate(value), { direct: FUNCTION_RETURN })
           .jnS(POP_FROM_CALL_STACK);
       }
@@ -137,11 +148,10 @@ const compileExpression = (expression: Expression) => {
       }
 
       marieCodeBuilder
-        .label(`#block${counters.blockCount}`)
+        .label(`${type}Block${counters.blockCount}`)
         .clear()
-        .load(evaluate(condition))
-        .skipIfCondition("greaterThan")
-        .jump(`#block${counters.blockCount}finally`);
+        .skipIf(evaluate(condition), "greaterThan", { literal: 0 })
+        .jump(`${type}BlockEnd${counters.blockCount}`);
 
       counters.blockCount++;
       break;
@@ -156,12 +166,12 @@ const compileExpression = (expression: Expression) => {
       const [_, type, index, forStatement] = scopes[0].split("#");
       if (type === "for") {
         compileExpression(JSON.parse(forStatement) as Expression);
-        marieCodeBuilder.jump(`#block${index}`);
+        marieCodeBuilder.jump(`${type}Block${index}`);
       }
       if (type === "while") {
-        marieCodeBuilder.jump(`#block${index}`);
+        marieCodeBuilder.jump(`${type}Block${index}`);
       }
-      marieCodeBuilder.label(`#block${index}finally`).clear();
+      marieCodeBuilder.label(`${type}BlockEnd${index}`).clear();
       scopes.shift();
       break;
     }
@@ -186,18 +196,23 @@ export const compileForMarieAssemblyLanguage = (
     .clear()
     .halt();
 
+  expressions.push(...parsedExpressions);
+  // Go through each expression
+  expressions.forEach((line) => compileExpression(line));
+
   // Declare procedures for call stack
   initCallStack();
   declarePushToCallStack();
   declarePopFromCallStack();
+  declareDeclareVariable();
+  declareStoreReturnAddress();
+  declareAssignArrayValues();
+  declareAssignNextArrayValue();
+  declareJumpToReturnAddress();
 
   // Declare procedures for math operations
   initMath();
   declareDivide();
-
-  expressions.push(...parsedExpressions);
-  // Go through each expression
-  expressions.forEach((line) => compileExpression(line));
 
   return marieCodeBuilder.getCode();
 };

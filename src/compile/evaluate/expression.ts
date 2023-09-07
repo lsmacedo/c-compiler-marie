@@ -13,14 +13,10 @@ export const evaluateExpression = (value: Value) => {
   const a = evaluate(firstOperand);
   const b = evaluate(secondOperand);
   if (operator === "+") {
-    marieCodeBuilder.load(a).add(b).store({ direct: EVALUATE_RESULT });
+    marieCodeBuilder.comment("Sum").add(a, b, EVALUATE_RESULT);
   }
   if (operator === "-") {
-    marieCodeBuilder
-      .copy(b, { direct: TMP })
-      .load(a)
-      .subt({ direct: TMP })
-      .store({ direct: EVALUATE_RESULT });
+    marieCodeBuilder.comment("Subtraction").subt(a, b, EVALUATE_RESULT);
   }
   if (operator === "/") {
     marieCodeBuilder
@@ -42,11 +38,9 @@ export const evaluateExpression = (value: Value) => {
     const conditionId = `#condition${counters.conditionCount++}`;
     marieCodeBuilder
       .copy({ literal: 0 }, { direct: EVALUATE_RESULT })
-      .load(a)
-      .skipIfCondition("greaterThan")
+      .skipIf(a, "greaterThan", { literal: 0 })
       .jump(`${conditionId}-finally`)
-      .load(b)
-      .skipIfCondition("greaterThan")
+      .skipIf(b, "greaterThan", { literal: 0 })
       .jump(`${conditionId}-finally`)
       .copy({ literal: 1 }, { direct: EVALUATE_RESULT })
       .label(`${conditionId}-finally`)
@@ -57,13 +51,9 @@ export const evaluateExpression = (value: Value) => {
     const conditionId = `#condition${counters.conditionCount++}`;
     marieCodeBuilder
       .copy({ literal: 1 }, { direct: EVALUATE_RESULT })
-      .load(a)
-      .subt({ literal: 1 })
-      .skipIfCondition("lessThan")
+      .skipIf(a, "lessThan", { literal: 1 })
       .jump(`${conditionId}-finally`)
-      .load(b)
-      .subt({ literal: 1 })
-      .skipIfCondition("lessThan")
+      .skipIf(b, "lessThan", { literal: 1 })
       .jump(`${conditionId}-finally`)
       .copy({ literal: 0 }, { direct: EVALUATE_RESULT })
       .label(`${conditionId}-finally`)
@@ -83,7 +73,7 @@ export const evaluateExpression = (value: Value) => {
     const then = operator !== "!=" ? 1 : 0;
     const otherwise = operator !== "!=" ? 0 : 1;
 
-    marieCodeBuilder.copy(b, { direct: TMP }).load(a);
+    marieCodeBuilder.load(a);
     if (operator === ">=") {
       marieCodeBuilder.add({ literal: 1 });
     }
@@ -91,16 +81,16 @@ export const evaluateExpression = (value: Value) => {
       marieCodeBuilder.subt({ literal: 1 });
     }
 
-    const conditionId = `#condition${counters.conditionCount++}`;
+    const counterValue = counters.conditionCount++;
     marieCodeBuilder
-      .subt({ direct: TMP })
-      .skipIfCondition(condition)
-      .jump(`${conditionId}else`)
+      .skipIfAc(condition, b)
+      .jump(`else${counterValue}`)
+      .label(`then${counterValue}`)
       .copy({ literal: then }, { direct: EVALUATE_RESULT })
-      .jump(`${conditionId}finally`)
-      .label(`${conditionId}else`)
+      .jump(`finally${counterValue}`)
+      .label(`else${counterValue}`)
       .copy({ literal: otherwise }, { direct: EVALUATE_RESULT })
-      .label(`${conditionId}finally`)
+      .label(`finally${counterValue}`)
       .clear();
   }
   return { direct: EVALUATE_RESULT };

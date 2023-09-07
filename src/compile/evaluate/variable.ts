@@ -18,22 +18,18 @@ const evaluatePrefix = (prefix: Value["prefix"]) => {
     return evaluatedValue;
   }
   if (prefix.operator === "-") {
-    const response = declareVariable(
-      `${EVALUATE_RESULT}${counters.fnReturnCount++}`
-    );
+    const responseVariable = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
     marieCodeBuilder
       .copy(evaluatedValue, { direct: TMP })
       .load({ literal: 0 })
       .subt({ direct: TMP })
-      .store({ direct: response });
-    return { direct: response };
+      .store({ direct: responseVariable });
+    return { direct: responseVariable };
   }
   if (prefix.operator === "*") {
-    const response = declareVariable(
-      `${EVALUATE_RESULT}${counters.fnReturnCount++}`
-    );
-    marieCodeBuilder.copy(evaluatedValue, { direct: response });
-    return { indirect: response };
+    const responseVariable = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
+    marieCodeBuilder.copy(evaluatedValue, { direct: responseVariable });
+    return { indirect: responseVariable };
   }
 
   throw new Error("Invalid prefix type");
@@ -44,16 +40,14 @@ const evaluatePostfix = (postfix: Value["postfix"]) => {
     throw new Error("Postfix is undefined");
   }
 
-  const response = declareVariable(
-    `${EVALUATE_RESULT}${counters.fnReturnCount++}`
-  );
+  const responseVariable = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
   const evaluatedValue = evaluate(postfix.value);
 
   marieCodeBuilder
-    .copy(evaluatedValue, { direct: response })
+    .copy(evaluatedValue, { direct: responseVariable })
     .add({ literal: postfix.operator === "++" ? 1 : -1 })
     .store(evaluatedValue);
-  return { direct: response };
+  return { direct: responseVariable };
 };
 
 export const evaluateVariable = (value: Value) => {
@@ -69,7 +63,6 @@ export const evaluateVariable = (value: Value) => {
     throw new Error("Variable is undefined");
   }
 
-  marieCodeBuilder.comment(`Load variable ${value.variable}`);
   // If value is an array or is preceded by &, reference its address
   // instead of value
   const variableDefinition = getVariableDefinition(value.variable);
@@ -79,20 +72,23 @@ export const evaluateVariable = (value: Value) => {
       ? "direct"
       : "indirect";
 
-  let response = value.variable;
+  let responseVariable = value.variable;
 
   // If a new variable is required, set it into returnVariable
   if (value.arrayPosition) {
-    response = declareVariable(`${EVALUATE_RESULT}${counters.fnReturnCount++}`);
-    marieCodeBuilder.copy({ direct: value.variable }, { direct: response });
+    responseVariable = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
+    marieCodeBuilder.copy(
+      { direct: value.variable },
+      { direct: responseVariable }
+    );
 
     const positionsToSkip = evaluate(value.arrayPosition);
     const loadType = variableDefinition ? "direct" : "indirect";
     marieCodeBuilder
-      .load({ [loadType]: response })
+      .load({ [loadType]: responseVariable })
       .add(positionsToSkip)
-      .store({ direct: response });
+      .store({ direct: responseVariable });
   }
 
-  return { [returnType]: response };
+  return { [returnType]: responseVariable };
 };

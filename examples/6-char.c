@@ -1,7 +1,8 @@
 int main()
 {
   char nome[] = "Lucas";
-  int params[] = {nome, 24};
+  int idade = 24;
+  int params[] = {nome, idade};
   printf("Meu nome é %s e eu tenho %d anos!", params);
 }
 
@@ -93,7 +94,7 @@ void printf(char *str, int param[])
       *str++;
       if (*str == 'd')
       {
-        printInt(24);
+        printInt(param[i++]);
       }
       if (*str == 's')
       {

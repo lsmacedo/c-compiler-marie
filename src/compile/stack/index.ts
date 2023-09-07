@@ -1,7 +1,13 @@
 import { Value } from "../../types";
 import { TMP, evaluate } from "../evaluate";
 import { getFunctionDefinition, marieCodeBuilder, scopes } from "../state";
-import { FRAME_POINTER, STACK_POINTER } from "./procedures";
+import { STACK_POINTER } from "./procedures";
+import {
+  ASSIGN_ARRAY_VALUES,
+  ASSIGN_NEXT_ARRAY_VALUE,
+} from "./procedures/assignArrayValues";
+import { DECLARE_VARIABLE } from "./procedures/declareVariable";
+import { JUMP_TO_RETURN_ADDRESS } from "./procedures/jumpToReturnAddress";
 import { PUSH_TO_CALL_STACK } from "./procedures/pushToCallStack";
 
 export const localVariables = {} as {
@@ -19,7 +25,11 @@ export const getVariableDefinition = (variableName: string) => {
   );
 };
 
-export const declareVariable = (name: string, arraySize?: Value) => {
+export const declareVariable = (
+  name: string,
+  arraySize?: Value,
+  skipMemoryAlloc = false
+) => {
   const functionName = currentFunctionName();
   if (!localVariables[functionName]) {
     localVariables[functionName] = [];
@@ -27,18 +37,14 @@ export const declareVariable = (name: string, arraySize?: Value) => {
   if (
     !localVariables[functionName].some((variable) => variable.name === name)
   ) {
-    localVariables[functionName].push({
-      name,
-      arraySize: arraySize ? evaluate(arraySize) : undefined,
-    });
-    marieCodeBuilder
-      .comment(`Declare variable ${name}`)
-      .copy({ direct: STACK_POINTER }, { direct: name });
-    const incrementStackBy = arraySize ? evaluate(arraySize) : { literal: 1 };
-    marieCodeBuilder
-      .load({ direct: STACK_POINTER })
-      .add(incrementStackBy)
-      .store({ direct: STACK_POINTER });
+    localVariables[functionName].push({ name, arraySize });
+    if (!skipMemoryAlloc) {
+      marieCodeBuilder
+        .comment(`Allocate memory for variable ${name}`)
+        .load(arraySize ?? { literal: 1 })
+        .jnS(DECLARE_VARIABLE)
+        .store({ direct: name });
+    }
   }
   return name;
 };
@@ -75,21 +81,32 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
 
   // Update call stack
   marieCodeBuilder
-    .comment("Preparing for function call")
+    .comment("Increment frame pointer before function call")
     .jnS(PUSH_TO_CALL_STACK);
 
   // Set parameters for function call
   const functionDefinition = getFunctionDefinition(functionName);
+  if (functionDefinition.params.length) {
+    marieCodeBuilder
+      .comment(`Set params for function ${functionName}`)
+      .load({ direct: STACK_POINTER })
+      .jnS(ASSIGN_ARRAY_VALUES);
+  }
   functionDefinition.params.forEach((param, index) => {
     marieCodeBuilder
       .comment(`Set param ${param.name}`)
-      .copy(evaluatedParams[index], { indirect: STACK_POINTER })
-      .copy({ direct: STACK_POINTER }, { direct: param.name })
-      .increment({ direct: STACK_POINTER });
+      .load(evaluatedParams[index])
+      .jnS(ASSIGN_NEXT_ARRAY_VALUE);
   });
+  if (functionDefinition.params.length) {
+    marieCodeBuilder.store({ direct: STACK_POINTER });
+  }
 
   // Call function
-  marieCodeBuilder.comment("Function call").jnS(functionName).clear();
+  marieCodeBuilder
+    .comment(`Call function ${functionName}`)
+    .jnS(functionName)
+    .clear();
 
   // Rollback variables after function call
   if (currentFunctionName()) {
@@ -106,9 +123,12 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
           .store({ direct: STACK_POINTER });
       });
     }
-    marieCodeBuilder
-      .comment("Skip return address")
-      .increment({ direct: STACK_POINTER });
+
+    marieCodeBuilder.add(
+      { direct: STACK_POINTER },
+      { literal: 1 },
+      STACK_POINTER
+    );
     if (variables.length) {
       marieCodeBuilder.comment(
         `Roll back local variables for ${currentFunction.name}`
@@ -116,10 +136,8 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
       variables.forEach(({ name, arraySize }) => {
         marieCodeBuilder
           .store({ direct: name })
-          .add(arraySize ?? { literal: 1 })
-          .store({ direct: STACK_POINTER });
+          .add(arraySize ?? { literal: 1 }, undefined, STACK_POINTER);
       });
-      marieCodeBuilder.comment("Resume function execution");
     }
   }
 };
@@ -127,12 +145,6 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
 export const jumpToReturnAddress = () => {
   const currentFunction = getFunctionDefinition(currentFunctionName());
   marieCodeBuilder
-    .comment("Jump to return address")
-    .load({ direct: FRAME_POINTER })
-    .add({ literal: 1 })
-    .store({ direct: TMP })
-    .load({ indirect: TMP })
-    .add({ literal: currentFunction.params.length })
-    .store({ direct: TMP })
-    .jumpI(TMP);
+    .load({ literal: currentFunction.params.length })
+    .jnS(JUMP_TO_RETURN_ADDRESS);
 };

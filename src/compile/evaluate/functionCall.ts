@@ -9,7 +9,6 @@ export const evaluateFunctionCall = (value: Value) => {
     throw new Error("Function call is undefined");
   }
 
-  marieCodeBuilder.comment(`Load function call ${value.functionCall.name}`);
   const { name, params } = value.functionCall;
   performFunctionCall(name, params);
   const response = declareVariable(

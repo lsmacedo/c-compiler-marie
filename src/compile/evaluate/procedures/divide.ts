@@ -3,10 +3,9 @@ import { marieCodeBuilder } from "../../state";
 
 export const DIVIDE = "Divide";
 
-const K = "$DIVIDE_K";
-const POW = "$DIVIDE_POW";
-const QUOTIENT = "$DIVIDE_QUOTIENT";
-const REMAINDER = "$DIVIDE_REMAINDER";
+const K = "$DivideK";
+const QUOTIENT = "$DivideQuotient";
+const REMAINDER = "$DivideRemainder";
 
 export const declareDivide = () => {
   // Declare procedure divide
@@ -14,54 +13,35 @@ export const declareDivide = () => {
     .procedure(DIVIDE)
     .copy({ literal: 0 }, { direct: QUOTIENT })
     .copy({ direct: MATH_ARG_0 }, { direct: K })
-    // Outer
-    .label("DivOuter")
+    // Loop
+    .label("DivideLoop")
     .load({ direct: K })
-    .skipIfCondition("greaterThan")
-    .jump("DivDone")
-    .load({ literal: 1 })
-    .store({ direct: POW })
-    .copy({ direct: MATH_ARG_1 }, { direct: REMAINDER })
-    // Inner
-    .label("DivInner")
-    .load({ direct: REMAINDER })
-    .add({ direct: REMAINDER })
-    .subt({ direct: K })
-    .skipIfCondition("lessThan")
-    .jump("DivAftIn")
-    .load({ direct: REMAINDER })
-    .add({ direct: REMAINDER })
-    .store({ direct: REMAINDER })
-    .load({ direct: POW })
-    .add({ direct: POW })
-    .store({ direct: POW })
-    // AftIn
-    .label("DivAftIn")
-    .load({ direct: K })
-    .subt({ direct: REMAINDER })
+    // If
+    .label("DivideIf")
+    .subt({ direct: MATH_ARG_1 })
+    .skipIfAc("lessThan", { literal: 0 })
+    .jump("DivideElse")
+    // Then
+    .label("DivideThen")
+    .jump("DivideEndIf")
+    // Else
+    .label("DivideElse")
     .store({ direct: K })
     .load({ direct: QUOTIENT })
-    .add({ direct: POW })
+    .add({ literal: 1 })
     .store({ direct: QUOTIENT })
-    .jump("DivOuter")
-    // Done
-    .label("DivDone")
-    .load({ direct: K })
-    .skipIfCondition("lessThan")
-    .jump("DivReturn")
-    .decrement({ direct: QUOTIENT })
-    // Return
-    .label("DivReturn")
-    .load({ direct: MATH_ARG_2 })
-    .skipIfCondition("equal")
-    .jump("DivReturnMod")
-    // Return quotient
+    .jump("DivideLoop")
+    // EndIf
+    .label("DivideEndIf")
+    .skipIf({ direct: MATH_ARG_2 }, "equal", { literal: 0 })
+    .jump("DivideReturnRemainder")
+    // ReturnQuotient
+    .label("DivideReturnQuotient")
     .copy({ direct: QUOTIENT }, { direct: MATH_RESULT })
     .jumpI(DIVIDE)
-    // Return reamainder
-    .label("DivReturnMod")
-    .load({ direct: K })
-    .skipIfCondition("equal")
+    // ReturnRemainder
+    .label("DivideReturnRemainder")
+    .skipIf({ direct: K }, "equal", { literal: 0 })
     .add({ direct: REMAINDER })
     .store({ direct: MATH_RESULT })
     .jumpI(DIVIDE);

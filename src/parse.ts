@@ -225,7 +225,9 @@ const expressionTypes = {
     parser: (matches: string[]): Value => {
       const [_, int, char] = matches;
       if (int !== undefined || char !== undefined) {
-        return { literal: int !== undefined ? int : char.charCodeAt(0) };
+        return {
+          literal: int !== undefined ? Number(int) : char.charCodeAt(0),
+        };
       }
       throw new Error("Error parsing literal");
     },
