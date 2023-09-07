@@ -42,6 +42,7 @@ import {
   declareAssignNextArrayValue,
 } from "./stack/procedures/assignArrayValues";
 import { declareJumpToReturnAddress } from "./stack/procedures/jumpToReturnAddress";
+import { declareMultiply } from "./evaluate/procedures/multiply";
 
 const compileExpression = (expression: Expression) => {
   switch (expression.expressionType) {
@@ -206,6 +207,7 @@ export const compileForMarieAssemblyLanguage = (
   // Declare procedures for math operations
   initMath();
   declareDivide();
+  declareMultiply();
 
   const code = marieCodeBuilder.getCode();
   const instructionsCount = marieCodeBuilder.getInstructionsCount();

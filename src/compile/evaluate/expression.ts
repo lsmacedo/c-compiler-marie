@@ -3,6 +3,7 @@ import { Value } from "../../types";
 import { counters, marieCodeBuilder } from "../state";
 import { MATH_ARG_0, MATH_ARG_1, MATH_ARG_2, MATH_RESULT } from "./procedures";
 import { DIVIDE } from "./procedures/divide";
+import { MULTIPLY } from "./procedures/multiply";
 
 export const evaluateExpression = (value: Value) => {
   if (!value.expression) {
@@ -17,6 +18,13 @@ export const evaluateExpression = (value: Value) => {
   }
   if (operator === "-") {
     marieCodeBuilder.comment("Subtraction").subt(a, b, EVALUATE_RESULT);
+  }
+  if (operator === "*") {
+    marieCodeBuilder
+      .copy(a, { direct: MATH_ARG_0 })
+      .copy(b, { direct: MATH_ARG_1 })
+      .jnS(MULTIPLY);
+    return { direct: MATH_RESULT };
   }
   if (operator === "/") {
     marieCodeBuilder
