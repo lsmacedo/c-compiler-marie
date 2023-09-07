@@ -125,10 +125,9 @@ const compileExpression = (expression: Expression) => {
     case "return": {
       const { value } = expression as Return;
       if (value !== undefined) {
-        marieCodeBuilder
-          .copy(evaluate(value), { direct: FUNCTION_RETURN })
-          .jnS(POP_FROM_CALL_STACK);
+        marieCodeBuilder.copy(evaluate(value), { direct: FUNCTION_RETURN });
       }
+      marieCodeBuilder.jnS(POP_FROM_CALL_STACK);
       jumpToReturnAddress();
       break;
     }
