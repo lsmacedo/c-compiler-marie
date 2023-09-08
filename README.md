@@ -2,22 +2,25 @@
 
 An extremely simple C compiler for [MARIE](https://marie.js.org/book.pdf) (Machine Architecture that is Really Intuitive and Easy).
 
-![image](https://github.com/lsmacedo/c-compiler-marie/assets/29143487/d7704e67-01ce-4929-bb2c-eecbe1154ae6)
+<img width="1624" alt="image" src="https://github.com/lsmacedo/c-compiler-marie/assets/29143487/08128c8a-89c3-4494-bf3c-63d0dddcad1c">
 
 ### Limitations
 
-- Only a very small subset of C features is supported. It is still far from being able to compile a real-world program without modifications.
+- Only a small subset of C features is supported. It is still far from being able to compile a real-world program without modifications.
 - The compiler is still at a very early stage and many bugs can happen during parsing or code generation.
 - MARIE architecture supports 4K words of memory, which is a big limitation for the amount of instructions a program can have and how much space can be destined to the stack.
 
-### Supported features
+### Status
 
-- `int` and `char` data types
-- `+`, `-`, `/`, `%`, `++` and `--` arithmetic operators
-- `*` and `&` pointer operators
+- Types: `int`, `char` and `void`
+- Arithmetic operators: `+`, `-`, `*`, `/`, `%`, `++` and `--`
+- Relational operators: `==`, `!=`, `<`, `<=`, `>` and `>=` relational operators
+- Logical operators: `&&` and `||`
+- Pointer operators: `*` and `&`
+- Flow control statements: `if`, `while` and `for`
+- Function calls: working (recursion is supported)
 - `{ }` syntax to initialize arrays
 - `""` syntax to initialize strings
-- `if`, `while` and `for` flow control statements
 
 ### Requirements
 
@@ -55,4 +58,4 @@ Example:
 yarn compile -f examples/1-fibonacci.c
 ```
 
-The generated MARIE code is printed in the console and can be executed in a simulator like this one: https://marie.js.org/
+The generated MARIE code is written by default into the file `a.mas` and can be executed in a simulator like this one: https://marie.js.org/
