@@ -1,20 +1,23 @@
 int main()
 {
   int size;
-  scan(&size);
+  puts("Informe o tamanho do array:");
+  scanf("%d", &size);
   int array[size];
   int i;
 
   for (i = 0; i < size; i++)
   {
-    scan(&array[i]);
+    puts("Informe o próximo elemento:");
+    scanf("%d", &array[i]);
   }
 
   bubbleSort(array, size);
 
+  puts("Array ordenado:");
   for (i = 0; i < size; i++)
   {
-    print(array[i]);
+    printf("%d\n", array[i]);
   }
 }
 

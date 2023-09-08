@@ -1,12 +1,15 @@
 int main()
 {
   int input;
-  scan(&input);
+
+  puts("Informe um valor:");
+  scanf("%d", &input);
+
   int x = recursive(input);
   int y = iterative(input);
-  print(x);
-  print(y);
-  print(x == y);
+
+  printf("x: %d\n", x);
+  printf("y: %d", y);
 }
 
 int recursive(int n)

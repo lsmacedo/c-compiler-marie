@@ -30,7 +30,7 @@ import {
   jumpToReturnAddress,
   performFunctionCall,
 } from "./stack";
-import { TMP, evaluate } from "./evaluate";
+import { evaluate } from "./evaluate";
 import { FUNCTION_RETURN } from "./evaluate/functionCall";
 import { declareDeclareVariable } from "./stack/procedures/declareVariable";
 import {

@@ -3,17 +3,17 @@ int main()
   int x = 5;
   int *pointer = &x;
 
-  print(x);
-  print(*pointer);
+  printf("%d\n", x);
+  printf("%d\n", *pointer);
 
-  print(&x);
-  print(pointer);
+  printf("%p\n", &x);
+  printf("%p\n", pointer);
 
-  print(x == *pointer);
-  print(&x == pointer);
+  printf("%d\n", x == *pointer);
+  printf("%d\n", &x == pointer);
 
   *pointer = 6;
 
-  print(x);
-  print(*pointer);
+  printf("%d\n", x);
+  printf("%d\n", *pointer);
 }

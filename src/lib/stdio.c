@@ -1,11 +1,10 @@
 // ---------- INPUT ---------- //
 
-void readunicode(char *ptr)
+void _readunicode(char *ptr)
 {
   char tmp;
   scan(&tmp);
-  // TODO: find an empty character supported by the simulator
-  while (tmp != ',')
+  while (tmp)
   {
     *ptr = tmp;
     *ptr++;
@@ -22,7 +21,7 @@ void scanf(char *str, char *ptr)
   }
   if (*str == 's')
   {
-    readunicode(ptr);
+    _readunicode(ptr);
     return;
   }
   if (*str == 'c')
@@ -35,23 +34,27 @@ void scanf(char *str, char *ptr)
     char tmp[8];
     char c;
     int i = 0;
-    readunicode(tmp);
+    _readunicode(tmp);
     while (tmp[i])
     {
-      c = tmp[i++];
+      c = tmp[i];
       c = c - 48;
-      if (*ptr)
+      if (i == 0)
+      {
+        *ptr = 0;
+      }
+      if (i > 0)
       {
         *ptr = *ptr * 10;
       }
       *ptr = *ptr + c;
+      i++;
     }
   }
 }
 
 // ---------- OUTPUT --------- //
-
-void puts(char *str)
+void _printstr(char *str)
 {
   while (*str)
   {
@@ -59,7 +62,15 @@ void puts(char *str)
   }
 }
 
-void reverse(char str[], int length)
+void puts(char *str)
+{
+  _printstr(str);
+  // Line break
+  print(92);
+  print(110);
+}
+
+void _reverse(char str[], int length)
 {
   int start = 0;
   int end = length - 1;
@@ -73,9 +84,8 @@ void reverse(char str[], int length)
   }
 }
 
-void itoa(int num, char str[])
+void _itoa(int num, char str[], int base)
 {
-  int base = 10;
   int i = 0;
   int isNegative = 0;
 
@@ -99,7 +109,16 @@ void itoa(int num, char str[])
   while (num != 0)
   {
     int rem = num % base;
-    str[i++] = rem + 48;
+    if (rem > 9)
+    {
+      // TODO: improve regex to support "str[i++] = rem - 10 + 'a'"
+      str[i] = rem - 10;
+      str[i++] = str[i] + 'a';
+    }
+    if (rem < 10)
+    {
+      str[i++] = rem + '0';
+    }
     num = num / base;
   }
 
@@ -112,17 +131,24 @@ void itoa(int num, char str[])
   str[i] = 0; // Append string terminator
 
   // Reverse the string
-  reverse(str, i);
+  _reverse(str, i);
 }
 
-void printint(int num)
+void _printint(int num)
 {
   char str[8];
-  itoa(num, str);
-  puts(str);
+  _itoa(num, str, 10);
+  _printstr(str);
 }
 
-void printf(char *str, int param[])
+void _printhex(int num)
+{
+  char str[8];
+  _itoa(num, str, 16);
+  printf("0x%s", str);
+}
+
+void printf(char *str, int param)
 {
   int i = 0;
   while (*str)
@@ -136,19 +162,23 @@ void printf(char *str, int param[])
       *str++;
       if (*str == 'd')
       {
-        printint(param[i++]);
+        _printint(param);
       }
       if (*str == 's')
       {
-        puts(param[i++]);
+        _printstr(param);
       }
       if (*str == 'c')
       {
-        print(param[i++]);
+        print(param);
       }
       if (*str == 'p')
       {
-        print(param[i++]);
+        _printhex(param);
+      }
+      if (*str == 'x')
+      {
+        _printhex(param);
       }
     }
     *str++;
