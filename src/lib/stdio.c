@@ -31,7 +31,7 @@ void scanf(char *str, char *ptr)
   }
   if (*str == 'd')
   {
-    char tmp[8];
+    char tmp[7];
     char c;
     int i = 0;
     _readunicode(tmp);
