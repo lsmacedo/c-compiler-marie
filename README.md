@@ -14,7 +14,7 @@ An extremely simple C compiler for [MARIE](https://marie.js.org/book.pdf) (Machi
 
 - Types: `int`, `char` and `void`
 - Arithmetic operators: `+`, `-`, `*`, `/`, `%`, `++` and `--`
-- Relational operators: `==`, `!=`, `<`, `<=`, `>` and `>=` relational operators
+- Relational operators: `==`, `!=`, `<`, `<=`, `>` and `>=`
 - Logical operators: `&&` and `||`
 - Pointer operators: `*` and `&`
 - Flow control statements: `if`, `while` and `for`
