@@ -1,6 +1,6 @@
 import { EVALUATE_RESULT, TMP, evaluate } from ".";
 import { Value } from "../../types";
-import { declareVariable, getVariableDefinition } from "../stack";
+import { getVariableDefinition } from "../stack";
 import { counters, marieCodeBuilder } from "../state";
 
 const evaluatePrefix = (prefix: Value["prefix"]) => {

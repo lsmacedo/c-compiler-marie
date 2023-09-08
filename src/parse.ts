@@ -13,7 +13,7 @@ import {
 /**
  * Recursively parse a string into the Value type.
  */
-const parseValue = (value: string): Value => {
+export const parseValue = (value: string): Value => {
   const {
     functionCall,
     arithmetic,
@@ -331,3 +331,10 @@ export const parseCode = (code: string): Expression[] => {
     .map((line) => parseExpression(line))
     .filter(({ expressionType: opType }) => opType);
 };
+
+/*
+TODO:
+- Split array position regex outside of variable context, in order to support
+  scenarios like: "Hello World"[2]
+- Support commas inside function parameter string
+*/
