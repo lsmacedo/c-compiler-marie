@@ -306,9 +306,30 @@ const expressionTypes = {
     regex:
       /^\s*(?<firstOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*(?<operator>(?!\+\+|\-\-)[+\-\*\/%])\s*(?<secondOperand>.+?(?:\(.*?\))|[^]+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
-      const [_, firstOperandString, operator, secondOperandString] = matches;
-      const firstOperand = parseValue(firstOperandString);
-      const secondOperand = parseValue(secondOperandString);
+      let [_, firstOperandString, operator, secondOperandString] = matches;
+
+      let firstOperand = parseValue(firstOperandString);
+      let secondOperand = parseValue(secondOperandString);
+
+      // Fix expressions order
+      // a * b + c gets parsed initially as a * (b + c), when it should be
+      // (a * b) + c
+      if (
+        secondOperand.expression &&
+        ["*", "/", "%"].includes(operator) &&
+        ["+", "-"].includes(secondOperand.expression.operator)
+      ) {
+        firstOperand = {
+          expression: {
+            firstOperand,
+            operator,
+            secondOperand: secondOperand.expression.firstOperand,
+          },
+        };
+        operator = secondOperand.expression.operator;
+        secondOperand = secondOperand.expression.secondOperand;
+      }
+
       return { firstOperand, operator, secondOperand };
     },
   },

@@ -1,9 +1,10 @@
 int atoi(char *str)
 {
   int res = 0;
-  for (int i = 0; str[i]; i++)
+  while (*str)
   {
-    res = res * 10 + str[i] - 48;
+    res = res * 10 + *str - 48;
+    *str++;
   }
   return res;
 }
