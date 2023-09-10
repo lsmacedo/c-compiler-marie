@@ -205,6 +205,88 @@ describe("parseValue", () => {
       };
       expect(parsed).toEqual(expected);
     });
+
+    describe("expression order", () => {
+      it("should parse order as (a && b) && c", () => {
+        const value = "0 && 1 && 2";
+        const parsed = parseValue(value);
+
+        const expected: Value = {
+          expression: {
+            firstOperand: {
+              expression: {
+                firstOperand: { literal: 0 },
+                operator: "&&",
+                secondOperand: { literal: 1 },
+              },
+            },
+            operator: "&&",
+            secondOperand: { literal: 2 },
+          },
+        };
+        expect(parsed).toEqual(expected);
+      });
+
+      it("should parse order as (a && b) || c", () => {
+        const value = "0 && 1 || 2";
+        const parsed = parseValue(value);
+
+        const expected: Value = {
+          expression: {
+            firstOperand: {
+              expression: {
+                firstOperand: { literal: 0 },
+                operator: "&&",
+                secondOperand: { literal: 1 },
+              },
+            },
+            operator: "||",
+            secondOperand: { literal: 2 },
+          },
+        };
+        expect(parsed).toEqual(expected);
+      });
+
+      it("should parse order as (a || b) || c", () => {
+        const value = "0 || 1 || 2";
+        const parsed = parseValue(value);
+
+        const expected: Value = {
+          expression: {
+            firstOperand: {
+              expression: {
+                firstOperand: { literal: 0 },
+                operator: "||",
+                secondOperand: { literal: 1 },
+              },
+            },
+            operator: "||",
+            secondOperand: { literal: 2 },
+          },
+        };
+        expect(parsed).toEqual(expected);
+      });
+
+      it("should parse order as a || (b && c)", () => {
+        const value = "0 || 1 && 2";
+        const parsed = parseValue(value);
+
+        const expected: Value = {
+          expression: {
+            firstOperand: { literal: 0 },
+            operator: "||",
+            secondOperand: {
+              expression: {
+                firstOperand: { literal: 1 },
+                operator: "&&",
+                secondOperand: { literal: 2 },
+              },
+            },
+          },
+        };
+        expect(parsed).toEqual(expected);
+      });
+    });
   });
 
   describe("relational expression", () => {
@@ -372,6 +454,88 @@ describe("parseValue", () => {
         },
       };
       expect(parsed).toEqual(expected);
+    });
+
+    describe("expression order", () => {
+      it("should parse order as a + (b * c)", () => {
+        const value = "0 + 1 * 2";
+        const parsed = parseValue(value);
+
+        const expected: Value = {
+          expression: {
+            firstOperand: { literal: 0 },
+            operator: "+",
+            secondOperand: {
+              expression: {
+                firstOperand: { literal: 1 },
+                operator: "*",
+                secondOperand: { literal: 2 },
+              },
+            },
+          },
+        };
+        expect(parsed).toEqual(expected);
+      });
+
+      it("should parse order as (a * b) + c", () => {
+        const value = "0 * 1 + 2";
+        const parsed = parseValue(value);
+
+        const expected: Value = {
+          expression: {
+            firstOperand: {
+              expression: {
+                firstOperand: { literal: 0 },
+                operator: "*",
+                secondOperand: { literal: 1 },
+              },
+            },
+            operator: "+",
+            secondOperand: { literal: 2 },
+          },
+        };
+        expect(parsed).toEqual(expected);
+      });
+
+      it("should parse order as a - (b / c)", () => {
+        const value = "0 - 1 / 2";
+        const parsed = parseValue(value);
+
+        const expected: Value = {
+          expression: {
+            firstOperand: { literal: 0 },
+            operator: "-",
+            secondOperand: {
+              expression: {
+                firstOperand: { literal: 1 },
+                operator: "/",
+                secondOperand: { literal: 2 },
+              },
+            },
+          },
+        };
+        expect(parsed).toEqual(expected);
+      });
+
+      it("should parse order as (a / b) - c", () => {
+        const value = "0 / 1 - 2";
+        const parsed = parseValue(value);
+
+        const expected: Value = {
+          expression: {
+            firstOperand: {
+              expression: {
+                firstOperand: { literal: 0 },
+                operator: "/",
+                secondOperand: { literal: 1 },
+              },
+            },
+            operator: "-",
+            secondOperand: { literal: 2 },
+          },
+        };
+        expect(parsed).toEqual(expected);
+      });
     });
   });
 
