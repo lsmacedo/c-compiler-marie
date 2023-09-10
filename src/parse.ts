@@ -3,12 +3,17 @@ import {
   Expression,
   FunctionCall,
   FunctionDefinition,
+  Macro,
   Operation,
   Return,
   ScopeEnd,
+  TypeDefinition,
   Value,
   VariableAssignment,
 } from "./types";
+
+const typedefs: TypeDefinition[] = [];
+const macros: Macro[] = [];
 
 /**
  * Recursively parse a string into the Value type.
@@ -26,6 +31,11 @@ export const parseValue = (value: string): Value => {
     prefix,
     postfix,
   } = expressionTypes;
+  // Macro
+  const macro = macros.find((macro) => macro.name === value);
+  if (macro) {
+    return macro.value;
+  }
   // Literal value (e.g. 5)
   if (literal.regex.test(value)) {
     const { regex, parser } = literal;
@@ -122,10 +132,26 @@ const parseFunctionCallParameters = (
  * get the necessary information from them.
  */
 const expressionTypes = {
+  // Typedef
+  typedef: {
+    regex: /^\s*typedef\s+(?<type>.+?)\s+(?<alias>[^\s]+?)\s*;?\s*$/,
+    parser: (matches: string[]): TypeDefinition => {
+      const [_, originalType, alias] = matches;
+      return { originalType, alias };
+    },
+  },
+  // Macro
+  macro: {
+    regex: /^\s*#define\s+(?<name>[^\s]+?)\s+(?<value>.+?)\s*;?\s*$/,
+    parser: (matches: string[]): Macro => {
+      const [_, name, value] = matches;
+      return { name, value: parseValue(value) };
+    },
+  },
   // Function definition
   functionDefinition: {
     regex:
-      /^\s*(?<type>int|char|void)\s*(?<pointer>\*)?\s*(?<name>[^\s]+)\s*\(\s*(?<params>.+?)?\s*\)\s*{\s*$/,
+      /^\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s]+)\s*\(\s*(?<params>.+?)?\s*\)\s*{\s*$/,
     parser: (matches: string[]): FunctionDefinition => {
       const [_, type, pointer, name, params] = matches;
       return {
@@ -142,41 +168,6 @@ const expressionTypes = {
     parser: (matches: RegExpMatchArray): FunctionCall => {
       const [_, name, params] = matches;
       return { name, params: parseFunctionCallParameters(params) };
-    },
-  },
-  // Variable declaration, with or without a value assignment
-  variableDeclaration: {
-    regex:
-      /^\s*(?<type>int|char|void)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+?)\s*(?<array>\[[^\]]*?\])?\s*(?:\=\s*(?<value>.+?))?\s*;?\s*$/,
-    parser: (matches: string[]): VariableAssignment => {
-      const [_, type, pointer, name, array, value] = matches;
-      return {
-        type,
-        name,
-        isArray: array !== undefined,
-        pointerOperation: pointer !== undefined,
-        arraySize:
-          array?.length > 2
-            ? parseValue(array.substring(1, array.length - 1))
-            : undefined,
-        value: value ? parseValue(value) : undefined,
-      };
-    },
-  },
-  // Assignment of a value to a variable
-  variableAssignment: {
-    regex:
-      /^\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*\=\s*(?<value>.+?)\s*;?\s*$/,
-    parser: (matches: string[]): VariableAssignment => {
-      const [_, pointer, name, array, value] = matches;
-      return {
-        name,
-        pointerOperation: pointer !== undefined,
-        arrayPosition: array
-          ? parseValue(array.substring(1, array.length - 1))
-          : undefined,
-        value: parseValue(value),
-      };
     },
   },
   // Function return
@@ -207,6 +198,42 @@ const expressionTypes = {
         throw new Error("Invalid block type");
       }
       return { type, condition, forStatements };
+    },
+  },
+  // Variable declaration, with or without a value assignment
+  variableDeclaration: {
+    regex:
+      /^\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s\[]+?)\s*(?<array>\[[^\]]*?\])?\s*(?:\=\s*(?<value>.+?))?\s*;?\s*$/,
+    parser: (matches: string[]): VariableAssignment => {
+      const [_, type, pointer, name, array, value] = matches;
+      const typedef = typedefs.find((typedef) => typedef.alias === type);
+      return {
+        type: typedef?.originalType ?? type,
+        name,
+        isArray: array !== undefined,
+        pointerOperation: pointer !== undefined,
+        arraySize:
+          array?.length > 2
+            ? parseValue(array.substring(1, array.length - 1))
+            : undefined,
+        value: value ? parseValue(value) : undefined,
+      };
+    },
+  },
+  // Assignment of a value to a variable
+  variableAssignment: {
+    regex:
+      /^\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]+\])?\s*\=\s*(?<value>.+?)\s*;?\s*$/,
+    parser: (matches: string[]): VariableAssignment => {
+      const [_, pointer, name, array, value] = matches;
+      return {
+        name,
+        pointerOperation: pointer !== undefined,
+        arrayPosition: array
+          ? parseValue(array.substring(1, array.length - 1))
+          : undefined,
+        value: parseValue(value),
+      };
     },
   },
   // Literal
@@ -277,7 +304,7 @@ const expressionTypes = {
   // Arithmetic expression
   arithmetic: {
     regex:
-      /^\s*(?<firstOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*(?<operator>[+\-\*\/%])\s*(?<secondOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*;?\s*$/,
+      /^\s*(?<firstOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*(?<operator>(?!\+\+|\-\-)[+\-\*\/%])\s*(?<secondOperand>.+?(?:\(.*?\))|[^]+?)\s*;?\s*$/,
     parser: (matches: RegExpMatchArray): Operation => {
       const [_, firstOperandString, operator, secondOperandString] = matches;
       const firstOperand = parseValue(firstOperandString);
@@ -313,10 +340,19 @@ export const parseExpression = (line: string): Expression => {
     ([_, { regex }]) => regex.test(line)
   )![0] as keyof typeof expressionTypes;
   const matches = line.match(expressionTypes[expressionType].regex);
-  return {
-    expressionType,
-    ...expressionTypes[expressionType].parser(matches!),
-  };
+  const parsed = expressionTypes[expressionType].parser(matches!);
+
+  if (expressionType === "typedef") {
+    const typedef = parsed as TypeDefinition;
+    typedefs.push(typedef);
+    return { expressionType: "" };
+  }
+  if (expressionType === "macro") {
+    const macro = parsed as Macro;
+    macros.push(macro);
+    return { expressionType: "" };
+  }
+  return { expressionType, ...parsed };
 };
 
 export const parseCode = (code: string): Expression[] => {

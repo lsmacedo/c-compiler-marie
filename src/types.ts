@@ -26,6 +26,16 @@ export type VariableAssignment = {
   value?: Value;
 };
 
+export type TypeDefinition = {
+  originalType: string;
+  alias: string;
+};
+
+export type Macro = {
+  name: string;
+  value: Value;
+};
+
 export type FunctionDefinition = {
   type: string;
   name: string;

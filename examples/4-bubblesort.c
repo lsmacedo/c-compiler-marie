@@ -12,7 +12,7 @@ int main()
     scanf("%d", &array[i]);
   }
 
-  bubbleSort(array, size);
+  bubblesort(array, size);
 
   puts("Array ordenado:");
   for (i = 0; i < size; i++)
@@ -28,7 +28,7 @@ void swap(int *x, int *y)
   *y = swapVar;
 }
 
-void bubbleSort(int array[], int size)
+void bubblesort(int array[], int size)
 {
   for (int counter = 0; counter < size; counter++)
   {
