@@ -2,15 +2,58 @@ import { parseExpression } from "../../parse";
 import {
   Expression,
   FunctionDefinition,
+  Macro,
   Return,
   ScopeEnd,
+  TypeDefinition,
   VariableAssignment,
 } from "../../types";
 
 describe("parseExpression", () => {
+  describe("typedef", () => {
+    it("should define a new alias to a type", () => {
+      const expression = "typedef int bool";
+      const parsed = parseExpression(expression);
+
+      const expected: Expression & TypeDefinition = {
+        expressionType: "typedef",
+        originalType: "int",
+        alias: "bool",
+      };
+      expect(parsed).toEqual(expected);
+    });
+  });
+  describe("macro", () => {
+    it("should define object-like macro", () => {
+      const expression = "#define true 1";
+      const parsed = parseExpression(expression);
+
+      const expected: Expression & Macro = {
+        expressionType: "macro",
+        name: "true",
+        value: { literal: 1 },
+      };
+      expect(parsed).toEqual(expected);
+    });
+  });
   describe("functionDefinition", () => {
     it("should parse function definition without parameters", () => {
       const expression = "int main() {";
+      const parsed = parseExpression(expression);
+
+      const expected: Expression & FunctionDefinition = {
+        expressionType: "functionDefinition",
+        type: "int",
+        isPointer: false,
+        name: "main",
+        params: [],
+      };
+      expect(parsed).toEqual(expected);
+    });
+
+    it("should parse function definition of alias type", () => {
+      parseExpression("typedef int bool");
+      const expression = "bool main() {";
       const parsed = parseExpression(expression);
 
       const expected: Expression & FunctionDefinition = {
@@ -50,6 +93,28 @@ describe("parseExpression", () => {
             name: "str",
             isPointer: false,
             isArray: true,
+          },
+        ],
+      };
+      expect(parsed).toEqual(expected);
+    });
+
+    it("should parse function definition with parameter of alias type", () => {
+      parseExpression("typedef int bool");
+      const expression = "void process(bool skip) {";
+      const parsed = parseExpression(expression);
+
+      const expected: Expression & FunctionDefinition = {
+        expressionType: "functionDefinition",
+        type: "void",
+        isPointer: false,
+        name: "process",
+        params: [
+          {
+            type: "int",
+            name: "skip",
+            isPointer: false,
+            isArray: false,
           },
         ],
       };

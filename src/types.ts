@@ -33,6 +33,7 @@ export type TypeDefinition = {
 
 export type Macro = {
   name: string;
+  params?: string[];
   value: Value;
 };
 

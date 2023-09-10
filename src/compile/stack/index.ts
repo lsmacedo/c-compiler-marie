@@ -51,7 +51,7 @@ export const declareVariable = (
 
 export const performFunctionCall = (functionName: string, params: Value[]) => {
   const builtInFunctions = {
-    scan: (params: Value[]) => {
+    __scan: (params: Value[]) => {
       const param = evaluate(params[0]);
       if (param.literal) {
         marieCodeBuilder
@@ -64,7 +64,7 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
         indirect: param.direct ?? param.indirect,
       });
     },
-    print: (params: Value[]) =>
+    __print: (params: Value[]) =>
       marieCodeBuilder.load(evaluate(params[0])).output(),
   };
   // If it is a built-in function, call it

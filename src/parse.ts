@@ -97,13 +97,14 @@ const parseFunctionDefinitionParameters = (
     return [];
   }
   const regex =
-    /^\s*(?<type>int|char|void)\s*(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(\[[^\]]*\])?\s*$/;
+    /^\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(\[[^\]]*\])?\s*$/;
   return params
     .split(",")
     .map((param) => {
       const matches = param.match(regex)!;
+      const typedef = typedefs.find((typedef) => typedef.alias === matches[1]);
       return {
-        type: matches[1],
+        type: typedef?.originalType ?? matches[1],
         name: matches[3],
         isPointer: matches[2] !== undefined,
         isArray: matches[4] !== undefined,
@@ -142,20 +143,23 @@ const expressionTypes = {
   },
   // Macro
   macro: {
-    regex: /^\s*#define\s+(?<name>[^\s]+?)\s+(?<value>.+?)\s*;?\s*$/,
+    regex:
+      /^\s*#define\s+(?<name>[^\s]+?)(?<params>\([^\)]*?\))?\s+(?<value>.+?)\s*;?\s*$/,
     parser: (matches: string[]): Macro => {
-      const [_, name, value] = matches;
-      return { name, value: parseValue(value) };
+      const [_, name, paramsStr, value] = matches;
+      const params = paramsStr?.split(",").map((p) => p.trim()) ?? undefined;
+      return { name, params, value: parseValue(value) };
     },
   },
   // Function definition
   functionDefinition: {
     regex:
-      /^\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s]+)\s*\(\s*(?<params>.+?)?\s*\)\s*{\s*$/,
+      /^\s*(?<static>static)?\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s]+)\s*\(\s*(?<params>.+?)?\s*\)\s*{\s*$/,
     parser: (matches: string[]): FunctionDefinition => {
-      const [_, type, pointer, name, params] = matches;
+      const [_, staticFunction, type, pointer, name, params] = matches;
+      const typedef = typedefs.find((typedef) => typedef.alias === type);
       return {
-        type,
+        type: typedef?.originalType ?? type,
         isPointer: pointer !== undefined,
         name,
         params: parseFunctionDefinitionParameters(params),
@@ -243,7 +247,10 @@ const expressionTypes = {
       const [_, int, char] = matches;
       if (int !== undefined || char !== undefined) {
         return {
-          literal: int !== undefined ? Number(int) : char.charCodeAt(0),
+          literal:
+            int !== undefined
+              ? Number(int)
+              : JSON.parse(`"${char}"`).charCodeAt(0),
         };
       }
       throw new Error("Error parsing literal");
@@ -366,12 +373,10 @@ export const parseExpression = (line: string): Expression => {
   if (expressionType === "typedef") {
     const typedef = parsed as TypeDefinition;
     typedefs.push(typedef);
-    return { expressionType: "" };
   }
   if (expressionType === "macro") {
     const macro = parsed as Macro;
     macros.push(macro);
-    return { expressionType: "" };
   }
   return { expressionType, ...parsed };
 };
@@ -386,7 +391,10 @@ export const parseCode = (code: string): Expression[] => {
     .replace(/(?<==\s*){/g, "[") // Temporary: Replace open curly brackets by brackets if following =
     .match(/(.*?[;{}])/g)! // Split expressions by curly brackets and semicolons
     .map((line) => parseExpression(line))
-    .filter(({ expressionType: opType }) => opType);
+    .filter(
+      ({ expressionType: opType }) =>
+        opType && !["typedef", "macro"].includes(opType)
+    );
 };
 
 /*

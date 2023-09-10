@@ -1,13 +1,13 @@
 // ---------- INPUT ---------- //
-void readunicode(char *ptr)
+static void scanstr(char *ptr)
 {
   char tmp;
-  scan(&tmp);
+  __scan(&tmp);
   while (tmp)
   {
     *ptr = tmp;
     *ptr++;
-    scan(&tmp);
+    __scan(&tmp);
   }
   *ptr = 0;
 }
@@ -20,39 +20,39 @@ void scanf(char *str, char *ptr)
   }
   if (*str == 's')
   {
-    readunicode(ptr);
+    scanstr(ptr);
     return;
   }
   if (*str == 'c')
   {
-    scan(ptr);
+    __scan(ptr);
     return;
   }
   if (*str == 'd')
   {
     char tmp[7];
-    readunicode(tmp);
+    scanstr(tmp);
     *ptr = atoi(tmp);
   }
 }
 
 // ---------- OUTPUT --------- //
-void printstr(char *str)
+static void printstr(char *str)
 {
   while (*str)
   {
-    print(*str++);
+    __print(*str++);
   }
 }
 
-void printint(int num)
+static void printint(int num)
 {
   char str[8];
   itoa(num, str, 10);
   printstr(str);
 }
 
-void printhex(int num)
+static void printhex(int num)
 {
   char str[8];
   itoa(num, str, 16);
@@ -62,9 +62,7 @@ void printhex(int num)
 void puts(char *str)
 {
   printstr(str);
-  // Line break
-  print(92);
-  print(110);
+  __print('\n');
 }
 
 void printf(char *str, int param)
@@ -73,7 +71,7 @@ void printf(char *str, int param)
   {
     if (*str != '%')
     {
-      print(*str);
+      __print(*str);
     }
     if (*str == '%')
     {
@@ -88,7 +86,7 @@ void printf(char *str, int param)
       }
       if (*str == 'c')
       {
-        print(param);
+        __print(param);
       }
       if (*str == 'p')
       {

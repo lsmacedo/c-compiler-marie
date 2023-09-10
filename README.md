@@ -10,15 +10,16 @@ An extremely simple C compiler for [MARIE](https://marie.js.org/book.pdf) (Machi
 - The compiler is still at a very early stage and many bugs can happen during parsing or code generation.
 - MARIE architecture supports 4K words of memory, which is a big limitation for the amount of instructions a program can have and how much space can be destined to the stack.
 
-### Status
+### Features
 
-- Types: `int`, `char` and `void`
-- Arithmetic operators: `+`, `-`, `*`, `/`, `%`, `++` and `--`
-- Relational operators: `==`, `!=`, `<`, `<=`, `>` and `>=` relational operators
-- Logical operators: `&&` and `||`
-- Pointer operators: `*` and `&`
-- Flow control statements: `if`, `while` and `for`
-- Function calls: working (recursion is supported)
+- Data types `int` and `char`
+- Arithmetic operators `+`, `-`, `*`, `/`, `%`, `++` and `--`
+- Relational operators `==`, `!=`, `<`, `<=`, `>` and `>=` relational operators
+- Logical operators `&&` and `||`
+- Pointer operators `*` and `&`
+- Flow control statements `if`, `while` and `for`
+- Function calls working (recursion is supported)
+- Initial support for macros and typedef
 - `{ }` syntax to initialize arrays
 - `""` syntax to initialize strings
 
