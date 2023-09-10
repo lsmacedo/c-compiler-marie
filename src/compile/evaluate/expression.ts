@@ -1,4 +1,4 @@
-import { EVALUATE_RESULT, TMP, evaluate } from ".";
+import { EVALUATE_RESULT, evaluate } from ".";
 import { Value } from "../../types";
 import { counters, marieCodeBuilder } from "../state";
 import { MATH_ARG_0, MATH_ARG_1, MATH_ARG_2, MATH_RESULT } from "./procedures";
@@ -13,60 +13,65 @@ export const evaluateExpression = (value: Value) => {
   const { firstOperand, operator, secondOperand } = value.expression;
   const a = evaluate(firstOperand);
   const b = evaluate(secondOperand);
+  const result = `${EVALUATE_RESULT}${counters.expressionCount++}`;
+
   if (operator === "+") {
-    marieCodeBuilder.comment("Sum").add(a, b, EVALUATE_RESULT);
+    marieCodeBuilder.comment("Sum").add(a, b, result);
   }
   if (operator === "-") {
-    marieCodeBuilder.comment("Subtraction").subt(a, b, EVALUATE_RESULT);
+    marieCodeBuilder.comment("Subtraction").subt(a, b, result);
   }
   if (operator === "*") {
     marieCodeBuilder
       .copy(a, { direct: MATH_ARG_0 })
       .copy(b, { direct: MATH_ARG_1 })
-      .jnS(MULTIPLY);
-    return { direct: MATH_RESULT };
+      .jnS(MULTIPLY)
+      .copy({ direct: MATH_RESULT }, { direct: result });
+    return { direct: result };
   }
   if (operator === "/") {
     marieCodeBuilder
       .copy(a, { direct: MATH_ARG_0 })
       .copy(b, { direct: MATH_ARG_1 })
       .copy({ literal: 0 }, { direct: MATH_ARG_2 })
-      .jnS(DIVIDE);
-    return { direct: MATH_RESULT };
+      .jnS(DIVIDE)
+      .copy({ direct: MATH_RESULT }, { direct: result });
+    return { direct: result };
   }
   if (operator === "%") {
     marieCodeBuilder
       .copy(a, { direct: MATH_ARG_0 })
       .copy(b, { direct: MATH_ARG_1 })
       .copy({ literal: 1 }, { direct: MATH_ARG_2 })
-      .jnS(DIVIDE);
-    return { direct: MATH_RESULT };
+      .jnS(DIVIDE)
+      .copy({ direct: MATH_RESULT }, { direct: result });
+    return { direct: result };
   }
   if (operator === "&&") {
     const conditionId = `#condition${counters.conditionCount++}`;
     marieCodeBuilder
-      .copy({ literal: 0 }, { direct: EVALUATE_RESULT })
+      .copy({ literal: 0 }, { direct: result })
       .skipIf(a, "greaterThan", { literal: 0 })
       .jump(`${conditionId}-finally`)
       .skipIf(b, "greaterThan", { literal: 0 })
       .jump(`${conditionId}-finally`)
-      .copy({ literal: 1 }, { direct: EVALUATE_RESULT })
+      .copy({ literal: 1 }, { direct: result })
       .label(`${conditionId}-finally`)
       .clear();
-    return { direct: EVALUATE_RESULT };
+    return { direct: result };
   }
   if (operator === "||") {
     const conditionId = `#condition${counters.conditionCount++}`;
     marieCodeBuilder
-      .copy({ literal: 1 }, { direct: EVALUATE_RESULT })
+      .copy({ literal: 1 }, { direct: result })
       .skipIf(a, "lessThan", { literal: 1 })
       .jump(`${conditionId}-finally`)
       .skipIf(b, "lessThan", { literal: 1 })
       .jump(`${conditionId}-finally`)
-      .copy({ literal: 0 }, { direct: EVALUATE_RESULT })
+      .copy({ literal: 0 }, { direct: result })
       .label(`${conditionId}-finally`)
       .clear();
-    return { direct: EVALUATE_RESULT };
+    return { direct: result };
   }
   if (["==", "!=", ">", "<", ">=", "<="].includes(operator)) {
     const condition = (() => {
@@ -94,12 +99,12 @@ export const evaluateExpression = (value: Value) => {
       .skipIfAc(condition, b)
       .jump(`else${counterValue}`)
       .label(`then${counterValue}`)
-      .copy({ literal: then }, { direct: EVALUATE_RESULT })
+      .copy({ literal: then }, { direct: result })
       .jump(`finally${counterValue}`)
       .label(`else${counterValue}`)
-      .copy({ literal: otherwise }, { direct: EVALUATE_RESULT })
+      .copy({ literal: otherwise }, { direct: result })
       .label(`finally${counterValue}`)
       .clear();
   }
-  return { direct: EVALUATE_RESULT };
+  return { direct: result };
 };

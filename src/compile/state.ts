@@ -9,6 +9,7 @@ export const counters = {
   fnReturnCount: 0,
   conditionCount: 0,
   blockCount: 0,
+  expressionCount: 0,
   tmp: 0,
 };
 
