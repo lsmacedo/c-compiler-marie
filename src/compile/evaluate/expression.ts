@@ -12,16 +12,18 @@ export const evaluateExpression = (value: Value) => {
 
   const { firstOperand, operator, secondOperand } = value.expression;
   const a = evaluate(firstOperand);
-  const b = evaluate(secondOperand);
   const result = `${EVALUATE_RESULT}${counters.expressionCount++}`;
 
   if (operator === "+") {
+    const b = evaluate(secondOperand);
     marieCodeBuilder.comment("Sum").add(a, b, result);
   }
   if (operator === "-") {
+    const b = evaluate(secondOperand);
     marieCodeBuilder.comment("Subtraction").subt(a, b, result);
   }
   if (operator === "*") {
+    const b = evaluate(secondOperand);
     marieCodeBuilder
       .copy(a, { direct: MATH_ARG_0 })
       .copy(b, { direct: MATH_ARG_1 })
@@ -30,6 +32,7 @@ export const evaluateExpression = (value: Value) => {
     return { direct: result };
   }
   if (operator === "/") {
+    const b = evaluate(secondOperand);
     marieCodeBuilder
       .copy(a, { direct: MATH_ARG_0 })
       .copy(b, { direct: MATH_ARG_1 })
@@ -39,6 +42,7 @@ export const evaluateExpression = (value: Value) => {
     return { direct: result };
   }
   if (operator === "%") {
+    const b = evaluate(secondOperand);
     marieCodeBuilder
       .copy(a, { direct: MATH_ARG_0 })
       .copy(b, { direct: MATH_ARG_1 })
@@ -52,11 +56,13 @@ export const evaluateExpression = (value: Value) => {
     marieCodeBuilder
       .copy({ literal: 0 }, { direct: result })
       .skipIf(a, "greaterThan", { literal: 0 })
-      .jump(`${conditionId}-finally`)
+      .jump(`${conditionId}end`);
+    const b = evaluate(secondOperand);
+    marieCodeBuilder
       .skipIf(b, "greaterThan", { literal: 0 })
-      .jump(`${conditionId}-finally`)
+      .jump(`${conditionId}end`)
       .copy({ literal: 1 }, { direct: result })
-      .label(`${conditionId}-finally`)
+      .label(`${conditionId}end`)
       .clear();
     return { direct: result };
   }
@@ -65,15 +71,18 @@ export const evaluateExpression = (value: Value) => {
     marieCodeBuilder
       .copy({ literal: 1 }, { direct: result })
       .skipIf(a, "lessThan", { literal: 1 })
-      .jump(`${conditionId}-finally`)
+      .jump(`${conditionId}end`);
+    const b = evaluate(secondOperand);
+    marieCodeBuilder
       .skipIf(b, "lessThan", { literal: 1 })
-      .jump(`${conditionId}-finally`)
+      .jump(`${conditionId}end`)
       .copy({ literal: 0 }, { direct: result })
-      .label(`${conditionId}-finally`)
+      .label(`${conditionId}end`)
       .clear();
     return { direct: result };
   }
   if (["==", "!=", ">", "<", ">=", "<="].includes(operator)) {
+    const b = evaluate(secondOperand);
     const condition = (() => {
       if (operator === "<" || operator === "<=") {
         return "lessThan";
@@ -97,13 +106,13 @@ export const evaluateExpression = (value: Value) => {
     const counterValue = counters.conditionCount++;
     marieCodeBuilder
       .skipIfAc(condition, b)
-      .jump(`else${counterValue}`)
-      .label(`then${counterValue}`)
+      .jump(`cond${counterValue}false`)
+      .label(`cond${counterValue}true`)
       .copy({ literal: then }, { direct: result })
-      .jump(`finally${counterValue}`)
-      .label(`else${counterValue}`)
+      .jump(`endcond${counterValue}`)
+      .label(`cond${counterValue}false`)
       .copy({ literal: otherwise }, { direct: result })
-      .label(`finally${counterValue}`)
+      .label(`endcond${counterValue}`)
       .clear();
   }
   return { direct: result };

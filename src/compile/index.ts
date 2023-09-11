@@ -146,10 +146,10 @@ const compileExpression = (expression: Expression) => {
       }
 
       marieCodeBuilder
-        .label(`${type}Block${counters.blockCount}`)
+        .label(`${type}${counters.blockCount}`)
         .clear()
         .skipIf(evaluate(condition), "greaterThan", { literal: 0 })
-        .jump(`${type}BlockEnd${counters.blockCount}`);
+        .jump(`end${type}${counters.blockCount}`);
 
       counters.blockCount++;
       break;
@@ -164,12 +164,12 @@ const compileExpression = (expression: Expression) => {
       const [_, type, index, forStatement] = scopes[0].split("#");
       if (type === "for") {
         compileExpression(JSON.parse(forStatement) as Expression);
-        marieCodeBuilder.jump(`${type}Block${index}`);
+        marieCodeBuilder.jump(`${type}${index}`);
       }
       if (type === "while") {
-        marieCodeBuilder.jump(`${type}Block${index}`);
+        marieCodeBuilder.jump(`${type}${index}`);
       }
-      marieCodeBuilder.label(`${type}BlockEnd${index}`).clear();
+      marieCodeBuilder.label(`end${type}${index}`).clear();
       scopes.shift();
       break;
     }

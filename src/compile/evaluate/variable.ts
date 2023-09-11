@@ -18,7 +18,7 @@ const evaluatePrefix = (prefix: Value["prefix"]) => {
     return evaluatedValue;
   }
   if (prefix.operator === "-") {
-    const responseVariable = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
+    const responseVariable = `${EVALUATE_RESULT}${counters.expressionCount++}`;
     marieCodeBuilder
       .copy(evaluatedValue, { direct: TMP })
       .load({ literal: 0 })
@@ -27,7 +27,7 @@ const evaluatePrefix = (prefix: Value["prefix"]) => {
     return { direct: responseVariable };
   }
   if (prefix.operator === "*") {
-    const responseVariable = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
+    const responseVariable = `${EVALUATE_RESULT}${counters.expressionCount++}`;
     marieCodeBuilder.copy(evaluatedValue, { direct: responseVariable });
     return { indirect: responseVariable };
   }
@@ -40,7 +40,7 @@ const evaluatePostfix = (postfix: Value["postfix"]) => {
     throw new Error("Postfix is undefined");
   }
 
-  const responseVariable = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
+  const responseVariable = `${EVALUATE_RESULT}${counters.expressionCount++}`;
   const evaluatedValue = evaluate(postfix.value);
 
   marieCodeBuilder
@@ -76,7 +76,7 @@ export const evaluateVariable = (value: Value) => {
 
   // If a new variable is required, set it into returnVariable
   if (value.arrayPosition) {
-    responseVariable = `${EVALUATE_RESULT}${counters.fnReturnCount++}`;
+    responseVariable = `${EVALUATE_RESULT}${counters.expressionCount++}`;
     marieCodeBuilder.copy(
       { direct: value.variable },
       { direct: responseVariable }
