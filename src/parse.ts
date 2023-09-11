@@ -402,6 +402,7 @@ export const parseExpression = (line: string): Expression => {
 export const parseCode = (code: string): Expression[] => {
   return code
     .replace(/(\/\/.*)/g, "") // Remove single-line comments
+    .replace(/^\s*#include\s+.+?\s*$/gm, "")
     .replace(/\n/g, " ") // Remove line breaks
     .replace(/(\/\*.*\*\/)/g, "") // Remove multi-line comments
     .replace(/(?<=\s*for\s*\([^\)]+);/g, ",") // Replace semicolons inside For statements with commas

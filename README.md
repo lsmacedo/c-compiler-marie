@@ -47,16 +47,15 @@ yarn install
 
 ### Usage
 
-To compile a `.c` file, use the `yarn compile` command with the following arguments:
+To compile a `.c` file, use the `yarn compile` command with the file names. Example:
 
-- `-f <file>` (Required): File to be compiled
+```shell
+yarn compile hello.c world.c
+```
+
+The following parameters are supported:
+
 - `-o <file>`: Output file name (default: a.mas)
 - `-v`: verbose mode
-
-Example:
-
-```shel
-yarn compile -f examples/1-fibonacci.c
-```
 
 The generated MARIE code is written by default into the file `a.mas` and can be executed in a simulator like this one: https://marie.js.org/

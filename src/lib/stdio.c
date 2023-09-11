@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 // ---------- INPUT ---------- //
 static void scanstr(char *ptr)
 {

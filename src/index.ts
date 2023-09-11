@@ -11,12 +11,6 @@ const args = yargs(hideBin(process.argv))
     type: "boolean",
     description: "Run with verbose logging",
   })
-  .option("file", {
-    alias: "f",
-    type: "string",
-    array: true,
-    demandOption: true,
-  })
   .option("output", {
     alias: "o",
     type: "string",
@@ -26,8 +20,25 @@ const args = yargs(hideBin(process.argv))
 
 // Read file
 let code = "";
-for (const file of args.file) {
+for (const file of args._) {
   code += "\n" + fs.readFileSync(file, "utf-8");
+}
+
+// Include standard libs
+const include = new Set<string>();
+const addIncludedLibs = (code: string) => {
+  const matches = code.match(/^\s*#include\s+<(.+?)>\s*$/gm) || [];
+  for (const m of matches) {
+    const lib = m.split(" <")[1].split(".h>")[0];
+    include.add(lib);
+  }
+};
+
+addIncludedLibs(code);
+for (const lib of include) {
+  const libCode = fs.readFileSync(`src/lib/${lib}.c`);
+  code += "\n" + libCode;
+  addIncludedLibs(libCode.toString());
 }
 
 // Parse code
