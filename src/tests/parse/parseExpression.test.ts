@@ -47,6 +47,7 @@ describe("parseExpression", () => {
         isPointer: false,
         name: "main",
         params: [],
+        isVariadic: false,
       };
       expect(parsed).toEqual(expected);
     });
@@ -62,6 +63,7 @@ describe("parseExpression", () => {
         isPointer: false,
         name: "main",
         params: [],
+        isVariadic: false,
       };
       expect(parsed).toEqual(expected);
     });
@@ -95,6 +97,7 @@ describe("parseExpression", () => {
             isArray: true,
           },
         ],
+        isVariadic: false,
       };
       expect(parsed).toEqual(expected);
     });
@@ -117,6 +120,7 @@ describe("parseExpression", () => {
             isArray: false,
           },
         ],
+        isVariadic: false,
       };
       expect(parsed).toEqual(expected);
     });

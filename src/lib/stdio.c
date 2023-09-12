@@ -67,8 +67,9 @@ void puts(char *str)
   __print('\n');
 }
 
-void printf(char *str, int param)
+void printf(char *str, ...)
 {
+  int i = 0;
   while (*str)
   {
     if (*str != '%')
@@ -77,26 +78,32 @@ void printf(char *str, int param)
     }
     if (*str == '%')
     {
+      i++;
       *str++;
       if (*str == 'd')
       {
-        printint(param);
+        int *arg = &str - i;
+        printint(*arg);
       }
       if (*str == 's')
       {
-        printstr(param);
+        char *arg = &str - i;
+        printstr(*arg);
       }
       if (*str == 'c')
       {
-        __print(param);
+        char *arg = &str - i;
+        __print(*arg);
       }
       if (*str == 'p')
       {
-        printhex(param);
+        int *arg = &str - i;
+        printhex(*arg);
       }
       if (*str == 'x')
       {
-        printhex(param);
+        int *arg = &str - i;
+        printhex(*arg);
       }
     }
     *str++;

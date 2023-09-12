@@ -97,17 +97,18 @@ const parseFunctionDefinitionParameters = (
     return [];
   }
   const regex =
-    /^\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(\[[^\]]*\])?\s*$/;
+    /^\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s\[]+)\s*(?<array>\[[^\]]*\])?\s*$|^\s*(?<ellipsis>...)\s*/;
   return params
     .split(",")
+    .filter((param) => !param.includes("..."))
     .map((param) => {
-      const matches = param.match(regex)!;
-      const typedef = typedefs.find((typedef) => typedef.alias === matches[1]);
+      const [_, type, pointer, name, array] = param.match(regex)!;
+      const typedef = typedefs.find((typedef) => typedef.alias === type);
       return {
-        type: typedef?.originalType ?? matches[1],
-        name: matches[3],
-        isPointer: matches[2] !== undefined,
-        isArray: matches[4] !== undefined,
+        type: typedef?.originalType ?? type,
+        name,
+        isPointer: pointer !== undefined,
+        isArray: array !== undefined,
       };
     })
     .filter((param) => param);
@@ -163,6 +164,7 @@ const expressionTypes = {
         isPointer: pointer !== undefined,
         name,
         params: parseFunctionDefinitionParameters(params),
+        isVariadic: params?.includes("...") ?? false,
       };
     },
   },

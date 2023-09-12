@@ -47,6 +47,7 @@ export type FunctionDefinition = {
     isPointer: boolean;
     isArray: boolean;
   }[];
+  isVariadic: boolean;
 };
 
 export type ScopeEnd = {

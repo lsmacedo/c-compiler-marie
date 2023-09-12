@@ -3,16 +3,16 @@
 int main()
 {
   int arraySize;
-  puts("Informe o tamanho do array:");
+  puts("Enter the array size:");
   scanf("%d", &arraySize);
   int array[arraySize];
   for (int i = 0; i < arraySize; i++)
   {
-    puts("Informe o próximo elemento:");
+    puts("Enter the next element:");
     scanf("%d", &array[i]);
   }
   int sum = arrayElementsSum(array, arraySize);
-  printf("Soma dos elementos do array: %d", sum);
+  printf("Array elements sum: %d", sum);
 }
 
 int arrayElementsSum(int array[], int arraySize)

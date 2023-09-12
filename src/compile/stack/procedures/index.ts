@@ -4,12 +4,12 @@ Representation for call stack implementation:
 $StackPointer  --->      Top of Stack
                     ======================
                     |   Local Variables  |
-                    |    Return Address  |
-$FramePointer  ---> |     Parameters     |
+$FramePointer  ---> |    Return Address  |
+                    |     Parameters     |
                     ======================
                     |   Local Variables  |
-                    |    Return Address  |
-$FramePointer  ---> |     Parameters     |
+$FramePointer  ---> |    Return Address  |
+                    |     Parameters     |
                     ======================
                     |         ...        |
 */

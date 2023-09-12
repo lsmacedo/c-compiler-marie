@@ -27,45 +27,43 @@ import {
   currentFunctionName,
   declareVariable,
   getVariableDefinition,
-  jumpToReturnAddress,
   performFunctionCall,
 } from "./stack";
 import { evaluate } from "./evaluate";
 import { FUNCTION_RETURN } from "./evaluate/functionCall";
 import { declareDeclareVariable } from "./stack/procedures/declareVariable";
 import {
-  STORE_RETURN_ADDRESS,
-  declareStoreReturnAddress,
-} from "./stack/procedures/storeReturnAddress";
-import {
   declareAssignArrayValues,
   declareAssignNextArrayValue,
 } from "./stack/procedures/assignArrayValues";
-import { declareJumpToReturnAddress } from "./stack/procedures/jumpToReturnAddress";
+import {
+  JUMP_TO_RETURN_ADDRESS,
+  declareJumpToReturnAddress,
+} from "./stack/procedures/jumpToReturnAddress";
 import { declareMultiply } from "./evaluate/procedures/multiply";
 
 const compileExpression = (expression: Expression) => {
   switch (expression.expressionType) {
     case "functionDefinition": {
       const { name, params } = expression as FunctionDefinition;
-      scopes.unshift(name);
+      scopes.unshift({ functionName: name });
+
       marieCodeBuilder.procedure(name);
 
       if (params.length) {
-        marieCodeBuilder.load({ indirect: FRAME_POINTER });
+        marieCodeBuilder
+          .comment("Store parameters addresses")
+          .load({ indirect: FRAME_POINTER });
         params.forEach((param) => {
-          marieCodeBuilder
-            .comment(`Set function param ${param.name}`)
-            .store({ direct: param.name })
-            .add({ literal: 1 })
-            .store({ direct: STACK_POINTER });
+          marieCodeBuilder.subt({ literal: 1 }).store({ direct: param.name });
         });
       }
 
       marieCodeBuilder
         .comment("Store return address on stack frame")
-        .load({ direct: name })
-        .jnS(STORE_RETURN_ADDRESS);
+        .copy({ direct: name }, { indirect: STACK_POINTER })
+        .add({ direct: STACK_POINTER }, { literal: 1 }, STACK_POINTER);
+
       break;
     }
     case "variableDeclaration":
@@ -128,7 +126,7 @@ const compileExpression = (expression: Expression) => {
         marieCodeBuilder.copy(evaluate(value), { direct: FUNCTION_RETURN });
       }
       marieCodeBuilder.jnS(POP_FROM_CALL_STACK);
-      jumpToReturnAddress();
+      marieCodeBuilder.jnS(JUMP_TO_RETURN_ADDRESS);
       break;
     }
     case "functionCall": {
@@ -138,11 +136,15 @@ const compileExpression = (expression: Expression) => {
     }
     case "block": {
       const { type, condition, forStatements } = expression as Block;
-      scopes.unshift(`${currentFunctionName()}#${type}#${counters.blockCount}`);
+      scopes.unshift({
+        functionName: currentFunctionName(),
+        blockType: type,
+        blockIndex: counters.blockCount,
+      });
 
       if (type === "for") {
         compileExpression(forStatements![0]);
-        scopes[0] += `#${JSON.stringify(forStatements![1])}`;
+        scopes[0].forStatement = forStatements![1];
       }
 
       marieCodeBuilder
@@ -155,21 +157,21 @@ const compileExpression = (expression: Expression) => {
       break;
     }
     case "blockEnd": {
-      if (!scopes[0].includes("#")) {
+      if (!scopes[0].blockType) {
         marieCodeBuilder.jnS(POP_FROM_CALL_STACK);
-        jumpToReturnAddress();
+        marieCodeBuilder.jnS(JUMP_TO_RETURN_ADDRESS);
         scopes.shift();
         break;
       }
-      const [_, type, index, forStatement] = scopes[0].split("#");
-      if (type === "for") {
-        compileExpression(JSON.parse(forStatement) as Expression);
-        marieCodeBuilder.jump(`${type}${index}`);
+      const { blockType, blockIndex, forStatement } = scopes[0];
+      if (blockType === "for") {
+        compileExpression(forStatement!);
+        marieCodeBuilder.jump(`${blockType}${blockIndex}`);
       }
-      if (type === "while") {
-        marieCodeBuilder.jump(`${type}${index}`);
+      if (blockType === "while") {
+        marieCodeBuilder.jump(`${blockType}${blockIndex}`);
       }
-      marieCodeBuilder.label(`end${type}${index}`).clear();
+      marieCodeBuilder.label(`end${blockType}${blockIndex}`).clear();
       scopes.shift();
       break;
     }
@@ -198,7 +200,6 @@ export const compileForMarieAssemblyLanguage = (
   declarePushToCallStack();
   declarePopFromCallStack();
   declareDeclareVariable();
-  declareStoreReturnAddress();
   declareAssignArrayValues();
   declareAssignNextArrayValue();
   declareJumpToReturnAddress();

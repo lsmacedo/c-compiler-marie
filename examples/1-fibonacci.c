@@ -4,14 +4,13 @@ int main()
 {
   int input;
 
-  puts("Informe um valor:");
+  puts("Enter a positive number:");
   scanf("%d", &input);
 
   int x = recursive(input);
   int y = iterative(input);
 
-  printf("x: %d\n", x);
-  printf("y: %d", y);
+  printf("x: %d\ny: %d", x, y);
 }
 
 int recursive(int n)
