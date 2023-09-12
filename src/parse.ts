@@ -152,22 +152,6 @@ const expressionTypes = {
       return { name, params, value: parseValue(value) };
     },
   },
-  // Function definition
-  functionDefinition: {
-    regex:
-      /^\s*(?<static>static)?\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s]+)\s*\(\s*(?<params>.+?)?\s*\)\s*{\s*$/,
-    parser: (matches: string[]): FunctionDefinition => {
-      const [_, staticFunction, type, pointer, name, params] = matches;
-      const typedef = typedefs.find((typedef) => typedef.alias === type);
-      return {
-        type: typedef?.originalType ?? type,
-        isPointer: pointer !== undefined,
-        name,
-        params: parseFunctionDefinitionParameters(params),
-        isVariadic: params?.includes("...") ?? false,
-      };
-    },
-  },
   // Function call
   functionCall: {
     regex: /^\s*(?<name>[^\s]+?)\s*\(\s*(?<params>[^)]+?)?\s*\)\s*;?$/,
@@ -204,6 +188,22 @@ const expressionTypes = {
         throw new Error("Invalid block type");
       }
       return { type, condition, forStatements };
+    },
+  },
+  // Function definition
+  functionDefinition: {
+    regex:
+      /^\s*(?<static>static)?\s*(?<type>[^\s]+?)\s+(?<pointer>\*)?\s*(?<name>[^\s]+)\s*\(\s*(?<params>.+?)?\s*\)\s*{\s*$/,
+    parser: (matches: string[]): FunctionDefinition => {
+      const [_, staticFunction, type, pointer, name, params] = matches;
+      const typedef = typedefs.find((typedef) => typedef.alias === type);
+      return {
+        type: typedef?.originalType ?? type,
+        isPointer: pointer !== undefined,
+        name,
+        params: parseFunctionDefinitionParameters(params),
+        isVariadic: params?.includes("...") ?? false,
+      };
     },
   },
   // Variable declaration, with or without a value assignment
