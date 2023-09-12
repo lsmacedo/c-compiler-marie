@@ -97,7 +97,12 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
       .jnS(ASSIGN_ARRAY_VALUES);
     evaluatedParams.forEach((param, index) => {
       marieCodeBuilder
-        .comment(`Set param ${functionDefinition.params[index]?.name ?? "..."}`)
+        .comment(
+          `Set param ${
+            functionDefinition.params[evaluatedParams.length - index - 1]
+              ?.name ?? "..."
+          }`
+        )
         .load(param)
         .jnS(ASSIGN_NEXT_ARRAY_VALUE);
     });
@@ -133,8 +138,9 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
       variables.forEach(({ name, arraySize }) => {
         marieCodeBuilder
           .store({ direct: name })
-          .add(arraySize ?? { literal: 1 }, undefined, STACK_POINTER);
+          .add(arraySize ?? { literal: 1 });
       });
+      marieCodeBuilder.store({ direct: STACK_POINTER });
     }
   }
 };

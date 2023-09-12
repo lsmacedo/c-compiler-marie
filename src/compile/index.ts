@@ -102,21 +102,27 @@ const compileExpression = (expression: Expression) => {
           : undefined;
 
         let variableName = name;
-        if (
-          (pointerOperation && !type) ||
-          (arrayPosition && !getVariableDefinition(name))
-        ) {
+        // If setting value through pointer, load referenced address into tmp
+        if (pointerOperation && !type) {
           variableName = `$TMP_${counters.tmp++}`;
           marieCodeBuilder.copy({ indirect: name }, { direct: variableName });
         }
+        // If setting value at array position, load referenced address into tmp
+        else if (arrayPosition) {
+          // Load indirect if array was declared in another scope
+          const loadType = getVariableDefinition(name) ? "direct" : "indirect";
+          variableName = `$TMP_${counters.tmp++}`;
+          marieCodeBuilder.copy({ [loadType]: name }, { direct: variableName });
+        }
 
         if (positionsToSkip) {
-          marieCodeBuilder
-            .add({ direct: variableName }, positionsToSkip, variableName)
-            .copy(valueVariable, { indirect: variableName });
-        } else {
-          marieCodeBuilder.copy(valueVariable, { indirect: variableName });
+          marieCodeBuilder.add(
+            { direct: variableName },
+            positionsToSkip,
+            variableName
+          );
         }
+        marieCodeBuilder.copy(valueVariable, { indirect: variableName });
       }
       break;
     }
