@@ -125,6 +125,7 @@ describe("parseValue", () => {
         functionCall: {
           name: "myfunction",
           params: [],
+          paramsStr: "",
         },
       };
       expect(parsed).toEqual(expected);
@@ -137,6 +138,7 @@ describe("parseValue", () => {
       const expected: Value = {
         functionCall: {
           name: "myfunction",
+          paramsStr: '123, x, "str"',
           params: [
             { literal: 123 },
             {

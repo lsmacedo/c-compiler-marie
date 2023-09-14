@@ -21,33 +21,7 @@ const functionCall = {
   parser: (matches: RegExpMatchArray): FunctionCall => {
     const [_, name, paramsStr] = matches;
     const params = parseFunctionCallParameters(paramsStr);
-    // Macro
-    // const macro = macros.find((macro) => macro.name === name);
-    // if (macro?.params) {
-    //   let str = macro.expressionsString;
-    //   const iterator = str.matchAll(
-    //     /(?<b>".*?")|(?<a>[^\s+\-\*/%=<>&;,{}()"]+)/g
-    //   );
-    //   let next;
-    //   while (!(next = iterator.next()).done) {
-    //     const symbol = next.value[2];
-    //     const symbolIndex = next.value.index;
-    //     const paramIndex = macro.params.indexOf(symbol);
-    //     const param = paramsStr.split(/,\s*/g)[paramIndex];
-    //     if (paramIndex !== -1) {
-    //       str =
-    //         str.substring(0, symbolIndex) +
-    //         param +
-    //         str.substring(symbolIndex! + param.length);
-    //     }
-    //   }
-    // const expressions = str
-    //   .replace(/\s+\\\s+|^\\\s+/g, "")
-    //   .split(expressionSplitRegex)
-    //   .flatMap((e) => parseExpression(e));
-    //   return expressions;
-    // }
-    return { name, params };
+    return { name, params, paramsStr };
   },
 };
 
