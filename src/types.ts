@@ -34,8 +34,7 @@ export type TypeDefinition = {
 export type Macro = {
   name: string;
   params?: string[];
-  value?: string;
-  expressions?: string;
+  value: string;
 };
 
 export type FunctionDefinition = {

@@ -1,20 +1,18 @@
-// Even though the stdarg lib isn't implemented yet, the compiler has support
-// for variadic functions.
-// The variable arguments can be accessed with a pointer by decrementing the
-// last named parameter's address.
-
 #include <stdio.h>
+#include <stdarg.h>
 
-int sum(int count, ...)
+void printall(int count, ...)
 {
-  int total = 0;
-  int *p = &count - 1;
+  va_list args;
+  va_start(args, count);
+
   for (int i = 0; i < count; i++)
   {
-    total = total + *p;
-    p--;
+    int val = va_arg(args, int);
+    printf("%d", val);
   }
-  return total;
+
+  va_end(args);
 }
 
 int main()
@@ -22,7 +20,6 @@ int main()
   int a = 10;
   int b = 20;
   int c = 30;
-  int x = sum(3, a, b, c);
-  printf("%d + %d + %d = %d", a, b, c, x);
+  printall(3, a, b, c);
   return 0;
 }

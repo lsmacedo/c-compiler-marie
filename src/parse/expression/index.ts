@@ -11,6 +11,7 @@ import postfix from "./postfix";
 import prefix from "./prefix";
 import relational from "./relational";
 import returnExpression from "./return";
+import type from "./type";
 import typedef from "./typedef";
 import variable from "./variable";
 import variableAssignment from "./variableAssignment";
@@ -25,6 +26,7 @@ export const expressionTypes = {
   functionDefinition,
   variableDeclaration,
   variableAssignment,
+  type,
   literal,
   array,
   variable,

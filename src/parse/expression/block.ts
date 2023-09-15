@@ -13,8 +13,8 @@ const block = {
       const statements = content.split(",");
       condition = parseValue(statements[1]);
       forStatements = [
-        parseExpression(statements[0])[0],
-        parseExpression(statements[2])[0],
+        parseExpression(statements[0]),
+        parseExpression(statements[2]),
       ];
     } else {
       throw new Error("Invalid block type");

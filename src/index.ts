@@ -18,28 +18,45 @@ const args = yargs(hideBin(process.argv))
   })
   .parseSync();
 
+type LibDependencyList = {
+  libName: string;
+  libCode: string;
+  libDependencies: LibDependencyList[];
+};
+
+const getDependenciesFromCode = (code: string): LibDependencyList[] => {
+  return (code.match(/^\s*#include\s+<(.+?)>\s*$/gm) || []).map((include) => {
+    const libName = include.split(" <")[1].split(".h>")[0];
+    const libCode = fs.readFileSync(`src/lib/${libName}.c`, "utf-8");
+    const libDependencies = getDependenciesFromCode(libCode);
+    return { libName, libCode, libDependencies };
+  });
+};
+
+const topologicalSort = (dependencyList: LibDependencyList) => {
+  visitedLibs.add(dependencyList.libName);
+  for (const dep of dependencyList.libDependencies) {
+    if (!visitedLibs.has(dep.libName)) {
+      topologicalSort(dep);
+    }
+  }
+  orderedLibs.push(dependencyList);
+};
+
 // Read file
 let code = "";
 for (const file of args._) {
   code += "\n" + fs.readFileSync(file, "utf-8");
 }
 
-// Include standard libs
-const include = new Set<string>();
-const addIncludedLibs = (code: string) => {
-  const matches = code.match(/^\s*#include\s+<(.+?)>\s*$/gm) || [];
-  for (const m of matches) {
-    const lib = m.split(" <")[1].split(".h>")[0];
-    include.add(lib);
-  }
-};
+// Include libs
+const libDependencies = getDependenciesFromCode(code);
 
-addIncludedLibs(code);
-for (const lib of include) {
-  const libCode = fs.readFileSync(`src/lib/${lib}.c`);
-  code += "\n" + libCode;
-  addIncludedLibs(libCode.toString());
-}
+// Perform topological sorting to order the libraries correctly
+const orderedLibs: LibDependencyList[] = [];
+const visitedLibs = new Set<string>();
+topologicalSort({ libName: "", libCode: code, libDependencies });
+code = orderedLibs.map((lib) => lib.libCode).join("\n");
 
 // Parse code
 const parsedCode = parseCode(code);

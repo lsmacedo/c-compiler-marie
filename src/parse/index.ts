@@ -1,12 +1,13 @@
 import { expressionTypes } from "./expression";
-import { macros } from "./state";
-import { Expression, FunctionCall, Value } from "../types";
+import { Expression, Value } from "../types";
+import { replaceMacros } from "./expression/macro";
 
 /**
  * Recursively parse a string into the Value type.
  */
 export const parseValue = (value: string): Value => {
   const {
+    type,
     functionCall,
     arithmetic,
     relational,
@@ -17,10 +18,10 @@ export const parseValue = (value: string): Value => {
     prefix,
     postfix,
   } = expressionTypes;
-  // Macro
-  const macro = macros.find((macro) => macro.name === value);
-  if (macro?.value) {
-    return parseValue(macro.value);
+  // Type
+  if (type.isType(value)) {
+    const { regex, parser } = type;
+    return parser(value.match(regex)!);
   }
   // Literal value (e.g. 5)
   if (literal.regex.test(value)) {
@@ -73,7 +74,7 @@ export const parseValue = (value: string): Value => {
 /**
  * Parse a line of code into the Expression type.
  */
-export const parseExpression = (line: string): Expression[] => {
+export const parseExpression = (line: string): Expression => {
   // Identify appropriate regex and get key elements from string
   let matches: RegExpMatchArray | null | undefined;
   let expressionType: keyof typeof expressionTypes | undefined;
@@ -89,47 +90,7 @@ export const parseExpression = (line: string): Expression[] => {
   }
   // Parse expression
   const parsed = expressionTypes[expressionType].parser(matches);
-  // Object-like Macro
-  if (expressionType === "variable") {
-    const { variable } = parsed as Value;
-    const macro = macros.find((macro) => macro.name === variable);
-    if (macro?.expressions) {
-      return macro.expressions
-        .replace(/\s+\\\s+|^\\\s+/g, "")
-        .split(/[;{}](?!\s+\\\s+)/gm)
-        .flatMap((expression) => parseExpression(expression));
-    }
-  }
-  // Function-like Macro
-  if (expressionType === "functionCall") {
-    const { name, paramsStr } = parsed as FunctionCall;
-    const macro = macros.find((macro) => macro.name === name);
-    if (macro?.params && macro.expressions) {
-      let str = macro.expressions;
-      const iterator = str.matchAll(
-        /(?<b>".*?")|(?<a>[^\s+\-\*/%=<>&;,{}()"]+)/g
-      );
-      let next;
-      while (!(next = iterator.next()).done) {
-        const symbol = next.value[2];
-        const symbolIndex = next.value.index;
-        const paramIndex = macro.params.indexOf(symbol);
-        const param = paramsStr.split(/,\s*/g)[paramIndex];
-        if (paramIndex !== -1) {
-          str =
-            str.substring(0, symbolIndex) +
-            param +
-            str.substring(symbolIndex! + param.length);
-        }
-      }
-      const expressions = str
-        .replace(/\s+\\\s+|^\\\s+/g, "")
-        .split(/[;{}](?!\s+\\\s+)/gm)
-        .flatMap((e) => parseExpression(e));
-      return expressions;
-    }
-  }
-  return [{ expressionType, ...parsed }];
+  return { expressionType, ...parsed };
 };
 
 export const parseCode = (code: string): Expression[] => {
@@ -142,7 +103,11 @@ export const parseCode = (code: string): Expression[] => {
     .replace(/(?<==\s*{[^}]*?)}/g, "]") // Temporary: Replace open curly brackets by brackets if following =
     .replace(/(?<==\s*){/g, "[") // Temporary: Replace open curly brackets by brackets if following =
     .match(/(.*?[;{}](?!\s+\\\s+))/gm)! // Split expressions by curly brackets and semicolons;
-    .flatMap((line) => parseExpression(line))
+    .flatMap((line) => {
+      const expression = parseExpression(line);
+      const replaced = replaceMacros(expression);
+      return replaced;
+    })
     .filter(
       ({ expressionType: opType }) =>
         opType && !["typedef", "macro"].includes(opType)

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdarg.h>
 
 // ---------- INPUT ---------- //
 static void scanstr(char *ptr)
@@ -69,7 +70,9 @@ void puts(char *str)
 
 void printf(char *str, ...)
 {
-  int i = 0;
+  va_list args;
+  va_start(args, str);
+
   while (*str)
   {
     if (*str != '%')
@@ -78,34 +81,30 @@ void printf(char *str, ...)
     }
     if (*str == '%')
     {
-      i++;
       *str++;
       if (*str == 'd')
       {
-        int *arg = &str - i;
-        printint(*arg);
+        int arg = va_arg(args, int);
+        printint(arg);
       }
       if (*str == 's')
       {
-        char *arg = &str - i;
-        printstr(*arg);
+        char *arg = va_arg(args, char *);
+        printstr(arg);
       }
       if (*str == 'c')
       {
-        char *arg = &str - i;
-        __print(*arg);
+        char arg = va_arg(args, char);
+        __print(arg);
       }
-      if (*str == 'p')
+      if (*str == 'p' || *str == 'x')
       {
-        int *arg = &str - i;
-        printhex(*arg);
-      }
-      if (*str == 'x')
-      {
-        int *arg = &str - i;
-        printhex(*arg);
+        int arg = va_arg(args, int);
+        printhex(arg);
       }
     }
     *str++;
   }
+
+  va_end(args);
 }
