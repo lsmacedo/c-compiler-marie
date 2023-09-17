@@ -57,7 +57,7 @@ export type ScopeEnd = {
 export type FunctionCall = {
   name: string;
   params: Value[];
-  paramsStr: string;
+  paramsStr?: string;
 };
 
 export type Operation = {

@@ -1,14 +1,14 @@
 import { parseValue } from "..";
-import { Operation } from "../../types";
+import { Value } from "../../types";
 
 const relational = {
   regex:
     /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|[^\s]+)\s*(?<operator>\>=|\<=|==|!=|[><])\s*(?<secondOperand>.+?)\s*;?\s*$/,
-  parser: (matches: RegExpMatchArray): Operation => {
+  parser: (matches: RegExpMatchArray): Value => {
     const [_, firstOperandString, operator, secondOperandString] = matches;
     const firstOperand = parseValue(firstOperandString);
     const secondOperand = parseValue(secondOperandString);
-    return { firstOperand, operator, secondOperand };
+    return { expression: { firstOperand, operator, secondOperand } };
   },
 };
 

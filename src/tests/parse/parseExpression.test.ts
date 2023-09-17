@@ -13,7 +13,7 @@ describe("parseExpression", () => {
   describe("typedef", () => {
     it("should define a new alias to a type", () => {
       const expression = "typedef int bool";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & TypeDefinition = {
         expressionType: "typedef",
@@ -26,7 +26,7 @@ describe("parseExpression", () => {
   describe("macro", () => {
     it("should define object-like macro", () => {
       const expression = "#define true 1";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & Macro = {
         expressionType: "macro",
@@ -39,7 +39,7 @@ describe("parseExpression", () => {
   describe("functionDefinition", () => {
     it("should parse function definition without parameters", () => {
       const expression = "int main() {";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & FunctionDefinition = {
         expressionType: "functionDefinition",
@@ -55,7 +55,7 @@ describe("parseExpression", () => {
     it("should parse function definition of alias type", () => {
       parseExpression("typedef int bool");
       const expression = "bool main() {";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & FunctionDefinition = {
         expressionType: "functionDefinition",
@@ -70,7 +70,7 @@ describe("parseExpression", () => {
 
     it("should parse function definition with parameters", () => {
       const expression = "void process(int num, char *ptr, char str[]) {";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & FunctionDefinition = {
         expressionType: "functionDefinition",
@@ -105,7 +105,7 @@ describe("parseExpression", () => {
     it("should parse function definition with parameter of alias type", () => {
       parseExpression("typedef int bool");
       const expression = "void process(bool skip) {";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & FunctionDefinition = {
         expressionType: "functionDefinition",
@@ -129,7 +129,7 @@ describe("parseExpression", () => {
   describe("variable declaration and assignment", () => {
     it("should parse variable declaration without initial value", () => {
       const expression = "int x";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & VariableAssignment = {
         expressionType: "variableDeclaration",
@@ -145,7 +145,7 @@ describe("parseExpression", () => {
 
     it("should parse variable declaration with an initial value", () => {
       const expression = "char *ptr = str";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & VariableAssignment = {
         expressionType: "variableDeclaration",
@@ -165,7 +165,7 @@ describe("parseExpression", () => {
 
     it("should parse assignment of value to variable", () => {
       const expression = "x = 5";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & VariableAssignment = {
         expressionType: "variableAssignment",
@@ -179,7 +179,7 @@ describe("parseExpression", () => {
 
     it("should parse assignment of value to variable at position", () => {
       const expression = "array[0] = 1";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & VariableAssignment = {
         expressionType: "variableAssignment",
@@ -193,7 +193,7 @@ describe("parseExpression", () => {
 
     it("should parse assignment of value to address referenced by pointer", () => {
       const expression = "*ptr = 10";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & VariableAssignment = {
         expressionType: "variableAssignment",
@@ -209,7 +209,7 @@ describe("parseExpression", () => {
   describe("function return", () => {
     it("should parse function return without value", () => {
       const expression = "return";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & Return = {
         expressionType: "return",
@@ -220,7 +220,7 @@ describe("parseExpression", () => {
 
     it("should parse function return with value", () => {
       const expression = "return 42";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & Return = {
         expressionType: "return",
@@ -233,7 +233,7 @@ describe("parseExpression", () => {
   describe("flow control statements", () => {
     it("should parse if statement", () => {
       const expression = "if (0 > 1) {";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & Return = {
         expressionType: "block",
@@ -252,7 +252,7 @@ describe("parseExpression", () => {
 
     it("should parse while statement", () => {
       const expression = "while (1) {";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & Return = {
         expressionType: "block",
@@ -267,7 +267,7 @@ describe("parseExpression", () => {
       // As a temporary solution to a bug, semicolons are replaced with commas
       // inside the for statement before parsing
       const expression = "for (int i = 0, i < 9, i++) {";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & Return = {
         expressionType: "block",
@@ -313,7 +313,7 @@ describe("parseExpression", () => {
   describe("block end", () => {
     it("should parse end of blocks", () => {
       const expression = "}";
-      const parsed = parseExpression(expression)[0];
+      const parsed = parseExpression(expression);
 
       const expected: Expression & ScopeEnd = {
         expressionType: "blockEnd",

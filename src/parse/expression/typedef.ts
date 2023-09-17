@@ -6,7 +6,7 @@ const typedef = {
   parser: (matches: string[]): TypeDefinition => {
     const [_, originalType, alias] = matches;
     const parsed = { originalType, alias };
-    types.push(alias);
+    types.push(alias.replace("*", ""));
     typedefs.push(parsed);
     return parsed;
   },

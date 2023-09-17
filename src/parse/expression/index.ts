@@ -17,7 +17,13 @@ import variable from "./variable";
 import variableAssignment from "./variableAssignment";
 import variableDeclaration from "./variableDeclaration";
 
-export const expressionTypes = {
+export const expressionTypes: {
+  [key: string]: {
+    regex: RegExp;
+    condition?: (value: string) => boolean;
+    parser: (matches: RegExpMatchArray) => any;
+  };
+} = {
   typedef,
   macro,
   functionCall,

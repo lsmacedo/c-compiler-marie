@@ -1,10 +1,10 @@
 import { parseValue } from "..";
-import { Operation } from "../../types";
+import { Value } from "../../types";
 
 const logical = {
   regex:
     /^\s*(?<firstOperand>[^\s]+(?:\(.*?\))|.+?)\s*(?<operator>&&|\|\|)\s*(?<secondOperand>.+?)\s*;?\s*$/,
-  parser: (matches: RegExpMatchArray): Operation => {
+  parser: (matches: RegExpMatchArray): Value => {
     let [_, firstOperandString, operator, secondOperandString] = matches;
 
     let firstOperand = parseValue(firstOperandString);
@@ -28,7 +28,7 @@ const logical = {
       secondOperand = secondOperand.expression.secondOperand;
     }
 
-    return { firstOperand, operator, secondOperand };
+    return { expression: { firstOperand, operator, secondOperand } };
   },
 };
 

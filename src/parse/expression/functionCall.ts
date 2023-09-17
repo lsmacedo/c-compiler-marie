@@ -1,5 +1,5 @@
 import { parseValue } from "..";
-import { FunctionCall } from "../../types";
+import { FunctionCall, Value } from "../../types";
 
 // Parser for function call parameters
 const parseFunctionCallParameters = (
@@ -18,10 +18,10 @@ const parseFunctionCallParameters = (
 
 const functionCall = {
   regex: /^\s*(?<name>[^\s]+?)\s*\(\s*(?<params>[^)]+?)?\s*\)\s*;?$/,
-  parser: (matches: RegExpMatchArray): FunctionCall => {
+  parser: (matches: RegExpMatchArray): Value => {
     const [_, name, paramsStr] = matches;
     const params = parseFunctionCallParameters(paramsStr);
-    return { name, params, paramsStr };
+    return { functionCall: { name, params, paramsStr } };
   },
 };
 

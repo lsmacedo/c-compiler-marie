@@ -1,5 +1,5 @@
 import { parseExpression } from "..";
-import { Expression, FunctionCall, Macro, Value } from "../../types";
+import { Expression, Macro, Value } from "../../types";
 import { macros } from "../state";
 
 const macro = {
@@ -33,7 +33,7 @@ export const parseObjectLikeMacro = (expression: Expression): Expression[] => {
     return macro.value
       .replace(/\s+\\\s+|^\\\s+/g, "")
       .split(/[;{}](?!\s+\\\s+)/gm)
-      .flatMap((expression) => replaceMacros(parseExpression(expression)));
+      .flatMap((line) => replaceMacros(parseExpression(line)));
   }
   return [expression];
 };
@@ -42,12 +42,9 @@ export const parseObjectLikeMacro = (expression: Expression): Expression[] => {
  * Replace function-like macro call with its code
  */
 export const parseFunctionLikeMacro = (
-  expression: Expression,
-  key?: keyof Expression
+  expression: Expression
 ): Expression[] => {
-  const { name, paramsStr } = (
-    key ? expression[key] : expression
-  ) as FunctionCall;
+  const { name, paramsStr } = (expression as Value).functionCall!;
   const macro = macros.find((macro) => macro.name === name);
   if (macro?.params) {
     let str = macro.value;
@@ -60,7 +57,7 @@ export const parseFunctionLikeMacro = (
       const symbol = next.value[2];
       const symbolIndex = next.value.index! + sizeDelta;
       const paramIndex = macro.params.indexOf(symbol);
-      const param = paramsStr.split(/,\s*/g)[paramIndex];
+      const param = paramsStr?.split(/,\s*/g)[paramIndex] || [];
       if (paramIndex !== -1) {
         str =
           str.substring(0, symbolIndex) +
@@ -77,47 +74,44 @@ export const parseFunctionLikeMacro = (
   return [expression];
 };
 
-/**
- * Recursively look for macro references in the expression and replace with
- * their code
- */
-export const replaceMacros = (
-  expression: Expression
-): Expression | Expression[] => {
-  const keys = Object.keys(expression);
-  if (!keys) {
-    return expression;
-  }
+export const replaceMacros = (expression: Expression): Expression[] => {
+  let response = { expression };
   const expressions: Expression[] = [];
-  Object.entries(expression).forEach(([key, value]) => {
-    // Object-like Macro
-    if (key === "variable") {
-      expressions.push(...parseObjectLikeMacro(expression));
+  const stack: [Expression, string, Expression][] = [
+    [response as unknown as Expression, "expression", expression],
+  ];
+
+  while (stack.length > 0) {
+    const [currExpression, key, currChild] = stack.pop()!;
+
+    if ((currChild as Value).variable) {
+      const replacedExpressions = parseObjectLikeMacro(currChild);
+      (currExpression[key as keyof Expression] as any) = replacedExpressions[0];
+      expressions.push(...replacedExpressions.slice(1));
     }
-    if (key === "value" && (value as Value)?.variable) {
-      const parsedMacro = parseObjectLikeMacro(value);
-      (expression as Expression & { value: Value }).value =
-        parsedMacro[0] as Value;
-      expressions.push(expression);
-      expressions.push(...parsedMacro.slice(1));
+
+    if ((currChild as Value).functionCall) {
+      const replacedExpressions = parseFunctionLikeMacro(currChild);
+      (currExpression[key as keyof Expression] as any) = replacedExpressions[0];
+      expressions.push(...replacedExpressions.slice(1));
     }
-    // Function-like Macro
-    if (key === "expressionType" && value === "functionCall") {
-      expressions.push(...parseFunctionLikeMacro(expression));
+
+    for (const childKey in currChild) {
+      if (
+        currChild.hasOwnProperty(childKey) &&
+        typeof currChild[childKey as keyof Expression] === "object"
+      ) {
+        stack.push([
+          currChild,
+          childKey,
+          currChild[childKey as keyof Expression] as unknown as Expression,
+        ]);
+      }
     }
-    if (key === "value" && (value as Value)?.functionCall) {
-      const parsedMacro = parseFunctionLikeMacro(
-        value,
-        "functionCall" as keyof Expression
-      );
-      (expression as Expression & { value: Value }).value =
-        parsedMacro[0] as Value;
-      expressions.push(expression);
-      expressions.push(...parsedMacro.slice(1));
-    }
-    return !value || typeof value !== "object" ? value : replaceMacros(value);
-  });
-  return expressions.length ? expressions : expression;
+  }
+
+  expressions.unshift(response.expression);
+  return expressions;
 };
 
 export default macro;

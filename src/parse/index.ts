@@ -19,7 +19,7 @@ export const parseValue = (value: string): Value => {
     postfix,
   } = expressionTypes;
   // Type
-  if (type.isType(value)) {
+  if (type.condition!(value)) {
     const { regex, parser } = type;
     return parser(value.match(regex)!);
   }
@@ -41,22 +41,22 @@ export const parseValue = (value: string): Value => {
   // Function call (e.g. func(x, 10))
   if (functionCall.regex.test(value)) {
     const { regex, parser } = functionCall;
-    return { functionCall: parser(value.match(regex)!) };
+    return parser(value.match(regex)!);
   }
   // Logical operator (e.g. x || y)
   if (logical.regex.test(value)) {
     const { regex, parser } = logical;
-    return { expression: parser(value.match(regex)!) };
+    return parser(value.match(regex)!);
   }
   // Relational expression (e.g. x == 5)
   if (relational.regex.test(value)) {
     const { regex, parser } = relational;
-    return { expression: parser(value.match(regex)!) };
+    return parser(value.match(regex)!);
   }
   // Arithmetic expression (e.g. x + 1)
   if (arithmetic.regex.test(value)) {
     const { regex, parser } = arithmetic;
-    return { expression: parser(value.match(regex)!) };
+    return parser(value.match(regex)!);
   }
   // Prefix to a value (e.g. ++x or ++*x or *++x)
   if (prefix.regex.test(value)) {
@@ -78,9 +78,9 @@ export const parseExpression = (line: string): Expression => {
   // Identify appropriate regex and get key elements from string
   let matches: RegExpMatchArray | null | undefined;
   let expressionType: keyof typeof expressionTypes | undefined;
-  for (const [type, { regex }] of Object.entries(expressionTypes)) {
+  for (const [type, { regex, condition }] of Object.entries(expressionTypes)) {
     matches = line.match(regex);
-    if (matches !== null) {
+    if (matches !== null && (!condition || condition(line))) {
       expressionType = type as keyof typeof expressionTypes;
       break;
     }
@@ -105,8 +105,7 @@ export const parseCode = (code: string): Expression[] => {
     .match(/(.*?[;{}](?!\s+\\\s+))/gm)! // Split expressions by curly brackets and semicolons;
     .flatMap((line) => {
       const expression = parseExpression(line);
-      const replaced = replaceMacros(expression);
-      return replaced;
+      return replaceMacros(expression);
     })
     .filter(
       ({ expressionType: opType }) =>

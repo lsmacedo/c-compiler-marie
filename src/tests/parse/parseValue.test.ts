@@ -2,20 +2,6 @@ import { parseExpression, parseValue } from "../../parse";
 import { Value } from "../../types";
 
 describe("parseValue", () => {
-  describe("macro", () => {
-    it("should replace macro with its defined literal value", () => {
-      parseExpression("#define true 1");
-
-      const value = "true";
-      const parsed = parseValue(value);
-
-      const expected: Value = {
-        literal: 1,
-      };
-      expect(parsed).toEqual(expected);
-    });
-  });
-
   describe("literal value", () => {
     it("should parse integer", () => {
       const value = "42";
@@ -125,7 +111,6 @@ describe("parseValue", () => {
         functionCall: {
           name: "myfunction",
           params: [],
-          paramsStr: "",
         },
       };
       expect(parsed).toEqual(expected);

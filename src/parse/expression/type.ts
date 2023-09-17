@@ -5,7 +5,7 @@ const regex = /^\s*(?<type>[^\s"'+\-\*\/%[\]{}\\&()]+?)\s*(?<pointer>\*)?\s*$/;
 
 const type = {
   regex,
-  isType: (value: string) => {
+  condition: (value: string) => {
     const matches = value.match(regex);
     if (!matches) {
       return false;

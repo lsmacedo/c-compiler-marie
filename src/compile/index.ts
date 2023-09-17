@@ -136,8 +136,11 @@ const compileExpression = (expression: Expression) => {
       break;
     }
     case "functionCall": {
-      const { name, params } = expression as FunctionCall;
-      performFunctionCall(name, params);
+      const { functionCall } = expression as Value;
+      if (!functionCall) {
+        return;
+      }
+      performFunctionCall(functionCall.name, functionCall.params);
       break;
     }
     case "block": {
