@@ -1,12 +1,15 @@
-import { parseExpression } from "..";
-import { Expression, Macro, Value } from "../../types";
-import { macros } from "../state";
+import { parseExpression } from ".";
+import { Expression, Macro, Value } from "../types";
+import { macros } from "./state";
 
-const macro = {
-  regex:
-    /^\s*#define\s+(?<name>[^\s]+?)(?<params>\([^\)]*?\))?\s+(?<value>.+?)\s*;?\s*$/,
-  parser: (matches: string[]): Macro => {
-    const [_, name, paramsStr, value] = matches;
+export const parseMacroDefinitions = (str: string): string => {
+  const macroDefinitions = str.matchAll(
+    /#define\s+(?<name>[^\s]+?)(?<params>\([^\)]*?\))?\s+(?<value>(?:\n|.)*?[^\\])\s*\n/g
+  );
+  let next: IteratorResult<RegExpMatchArray>;
+  let returnStr = str;
+  while (!(next = macroDefinitions.next()).done) {
+    const [_, name, paramsStr, value] = next.value;
     const params =
       paramsStr
         ?.substring(1, paramsStr.length - 1)
@@ -19,8 +22,9 @@ const macro = {
       value,
     };
     macros.push(parsed);
-    return parsed;
-  },
+    returnStr = returnStr.replace(next.value[0], "");
+  }
+  return returnStr;
 };
 
 /**
@@ -33,6 +37,7 @@ export const parseObjectLikeMacro = (expression: Expression): Expression[] => {
     return macro.value
       .replace(/\s+\\\s+|^\\\s+/g, "")
       .split(/[;{}](?!\s+\\\s+)/gm)
+      .filter((line) => line)
       .flatMap((line) => replaceMacros(parseExpression(line)));
   }
   return [expression];
@@ -69,6 +74,7 @@ export const parseFunctionLikeMacro = (
     return str
       .replace(/\s+\\\s+|^\\\s+/g, "")
       .split(/[;{}](?!\s+\\\s+)/gm)
+      .filter((line) => line)
       .flatMap((e) => replaceMacros(parseExpression(e)));
   }
   return [expression];
@@ -113,5 +119,3 @@ export const replaceMacros = (expression: Expression): Expression[] => {
   expressions.unshift(response.expression);
   return expressions;
 };
-
-export default macro;

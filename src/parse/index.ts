@@ -1,6 +1,6 @@
 import { expressionTypes } from "./expression";
 import { Expression, Value } from "../types";
-import { replaceMacros } from "./expression/macro";
+import { parseMacroDefinitions, replaceMacros } from "./macro";
 
 /**
  * Recursively parse a string into the Value type.
@@ -94,7 +94,7 @@ export const parseExpression = (line: string): Expression => {
 };
 
 export const parseCode = (code: string): Expression[] => {
-  return code
+  return parseMacroDefinitions(code)
     .replace(/(\/\/.*)/g, "") // Remove single-line comments
     .replace(/^\s*#include\s+.+?\s*$/gm, "")
     .replace(/\n/g, " ") // Remove line breaks
@@ -103,10 +103,7 @@ export const parseCode = (code: string): Expression[] => {
     .replace(/(?<==\s*{[^}]*?)}/g, "]") // Temporary: Replace open curly brackets by brackets if following =
     .replace(/(?<==\s*){/g, "[") // Temporary: Replace open curly brackets by brackets if following =
     .match(/(.*?[;{}](?!\s+\\\s+))/gm)! // Split expressions by curly brackets and semicolons;
-    .flatMap((line) => {
-      const expression = parseExpression(line);
-      return replaceMacros(expression);
-    })
+    .flatMap((line) => replaceMacros(parseExpression(line)))
     .filter(
       ({ expressionType: opType }) =>
         opType && !["typedef", "macro"].includes(opType)

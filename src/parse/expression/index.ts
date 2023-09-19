@@ -6,7 +6,6 @@ import functionCall from "./functionCall";
 import functionDefinition from "./functionDefinition";
 import literal from "./literal";
 import logical from "./logical";
-import macro from "./macro";
 import postfix from "./postfix";
 import prefix from "./prefix";
 import relational from "./relational";
@@ -25,7 +24,6 @@ export const expressionTypes: {
   };
 } = {
   typedef,
-  macro,
   functionCall,
   return: returnExpression,
   block,
