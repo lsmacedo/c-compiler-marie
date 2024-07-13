@@ -1,17 +1,5 @@
-import {
-  FunctionCall,
-  FunctionDefinition,
-  Block,
-  Expression,
-  Return,
-  Value,
-  VariableAssignment,
-} from "../types";
-import {
-  FRAME_POINTER,
-  STACK_POINTER,
-  initCallStack,
-} from "./stack/procedures";
+import { Expression } from "../types";
+import { initCallStack } from "./stack/procedures";
 import {
   PUSH_TO_CALL_STACK,
   declarePushToCallStack,
@@ -21,18 +9,15 @@ import {
   declarePopFromCallStack,
 } from "./stack/procedures/popFromCallStack";
 import { initMath } from "./evaluate/procedures";
-import { declareDivide } from "./evaluate/procedures/divide";
-import { counters, expressions, marieCodeBuilder, scopes } from "./state";
+import { DIVIDE, declareDivide } from "./evaluate/procedures/divide";
+import { expressions, marieCodeBuilder } from "./state";
 import {
-  currentFunctionName,
-  declareVariable,
-  getVariableDefinition,
-  performFunctionCall,
-} from "./stack";
-import { evaluate } from "./evaluate";
-import { FUNCTION_RETURN } from "./evaluate/functionCall";
-import { declareDeclareVariable } from "./stack/procedures/declareVariable";
+  DECLARE_VARIABLE,
+  declareDeclareVariable,
+} from "./stack/procedures/declareVariable";
 import {
+  ASSIGN_ARRAY_VALUES,
+  ASSIGN_NEXT_ARRAY_VALUE,
   declareAssignArrayValues,
   declareAssignNextArrayValue,
 } from "./stack/procedures/assignArrayValues";
@@ -40,7 +25,7 @@ import {
   JUMP_TO_RETURN_ADDRESS,
   declareJumpToReturnAddress,
 } from "./stack/procedures/jumpToReturnAddress";
-import { declareMultiply } from "./evaluate/procedures/multiply";
+import { MULTIPLY, declareMultiply } from "./evaluate/procedures/multiply";
 import { CompilerStrategy } from "./compilers/compilerStrategy";
 
 const compileExpression = (expression: Expression) => {
@@ -57,19 +42,25 @@ export const compileForMarieAssemblyLanguage = (
   // Go through each expression
   expressions.forEach((line) => compileExpression(line));
 
-  // Declare procedures for call stack
+  // Declare procedures
   initCallStack();
-  declarePushToCallStack();
-  declarePopFromCallStack();
-  declareDeclareVariable();
-  declareAssignArrayValues();
-  declareAssignNextArrayValue();
-  declareJumpToReturnAddress();
-
-  // Declare procedures for math operations
   initMath();
-  declareDivide();
-  declareMultiply();
+  const procedures = {
+    [PUSH_TO_CALL_STACK]: declarePushToCallStack,
+    [POP_FROM_CALL_STACK]: declarePopFromCallStack,
+    [DECLARE_VARIABLE]: declareDeclareVariable,
+    [ASSIGN_ARRAY_VALUES]: declareAssignArrayValues,
+    [ASSIGN_NEXT_ARRAY_VALUE]: declareAssignNextArrayValue,
+    [JUMP_TO_RETURN_ADDRESS]: declareJumpToReturnAddress,
+    [DIVIDE]: declareDivide,
+    [MULTIPLY]: declareMultiply,
+  };
+  const codeBeforeProcedures = marieCodeBuilder.getCode();
+  Object.entries(procedures).forEach(([procedureName, declareProcedure]) => {
+    if (codeBeforeProcedures.includes(`JnS ${procedureName}`)) {
+      declareProcedure();
+    }
+  });
 
   const code = marieCodeBuilder.getCode();
   const instructionsCount = marieCodeBuilder.getInstructionsCount();
