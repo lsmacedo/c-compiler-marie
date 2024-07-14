@@ -93,39 +93,22 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
   // be declared
   const evaluatedParams = params.map((param) => evaluate(param)).reverse();
 
-  // Update call stack
-  marieCodeBuilder
-    .comment("Increment frame pointer before function call")
-    .add(
-      { direct: STACK_POINTER },
-      { literal: evaluatedParams.length },
-      STACK_POINTER
-    )
-    .jnS(INCREMENT_FRAME_POINTER);
-
   // Set parameters for function call
-  const functionDefinition = getFunctionDefinition(functionName);
   if (evaluatedParams.length) {
-    marieCodeBuilder
-      .comment(`Set params for function ${functionName}`)
-      .subt({ direct: STACK_POINTER }, { literal: evaluatedParams.length })
-      .jnS(ASSIGN_ARRAY_VALUES);
-    evaluatedParams.forEach((param, index) => {
+    marieCodeBuilder.comment(
+      `Store parameters for function ${functionName} on stack`
+    );
+    evaluatedParams.forEach((param) => {
       marieCodeBuilder
-        .comment(
-          `Set param ${
-            functionDefinition.params[evaluatedParams.length - index - 1]
-              ?.name ?? "..."
-          }`
-        )
-        .load(param)
-        .jnS(ASSIGN_NEXT_ARRAY_VALUE);
+        .copy(param, { indirect: STACK_POINTER })
+        .jnS(INCREMENT_STACK_POINTER);
     });
   }
 
-  // Call function
+  // Jump to function
   marieCodeBuilder
-    .comment(`Call function ${functionName}`)
+    .comment("Increment frame pointer and jump to function")
+    .jnS(INCREMENT_FRAME_POINTER)
     .jnS(functionName)
     .clear();
 

@@ -20,7 +20,7 @@ export class Builder {
   }
 
   protected literal(literal: number) {
-    const varName = `$${literal}`;
+    const varName = `_${literal}`;
     this.declareVariables({ [varName]: literal });
     return { varName, value: { literal: literal } };
   }
@@ -28,7 +28,7 @@ export class Builder {
   protected varName(value: VariableType) {
     let variable: string;
     if (value.literal !== undefined) {
-      variable = `$${value.literal}`;
+      variable = `_${value.literal}`;
       if (!this.variables[variable]) {
         this.declareVariables({ [variable]: value.literal });
       }
