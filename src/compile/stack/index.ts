@@ -1,13 +1,14 @@
 import { Value } from "../../types";
 import { TMP, evaluate } from "../evaluate";
 import { getFunctionDefinition, marieCodeBuilder, scopes } from "../state";
-import { FRAME_POINTER, STACK_POINTER } from "./procedures";
+import { STACK_POINTER } from "./procedures";
 import {
   ASSIGN_ARRAY_VALUES,
   ASSIGN_NEXT_ARRAY_VALUE,
 } from "./procedures/assignArrayValues";
 import { DECLARE_VARIABLE } from "./procedures/declareVariable";
-import { PUSH_TO_CALL_STACK } from "./procedures/pushToCallStack";
+import { INCREMENT_FRAME_POINTER } from "./procedures/incrementFramePointer";
+import { INCREMENT_STACK_POINTER } from "./procedures/incrementStackPointer";
 
 export const localVariables = {} as {
   [functionName: string]: {
@@ -38,14 +39,28 @@ export const declareVariable = (
   ) {
     localVariables[functionName].push({ name, arraySize });
     if (!skipMemoryAlloc) {
-      marieCodeBuilder
-        .comment(`Allocate memory for variable ${name}`)
-        .load(arraySize ?? { literal: 1 })
-        .jnS(DECLARE_VARIABLE)
-        .store({ direct: name });
+      allocateMemoryForVariable(name, arraySize);
     }
   }
   return name;
+};
+
+const allocateMemoryForVariable = (
+  name: string,
+  arraySize: Value | undefined
+) => {
+  if (!arraySize) {
+    marieCodeBuilder
+      .comment(`Allocate memory for variable ${name}`)
+      .copy({ direct: STACK_POINTER }, { direct: name })
+      .jnS(INCREMENT_STACK_POINTER);
+    return;
+  }
+  marieCodeBuilder
+    .comment(`Allocate memory for variable ${name}`)
+    .load(arraySize ?? { literal: 1 })
+    .jnS(DECLARE_VARIABLE)
+    .store({ direct: name });
 };
 
 export const performFunctionCall = (functionName: string, params: Value[]) => {
@@ -86,7 +101,7 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
       { literal: evaluatedParams.length },
       STACK_POINTER
     )
-    .jnS(PUSH_TO_CALL_STACK);
+    .jnS(INCREMENT_FRAME_POINTER);
 
   // Set parameters for function call
   const functionDefinition = getFunctionDefinition(functionName);
@@ -129,7 +144,7 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
 
     marieCodeBuilder
       .comment("Skip return address")
-      .add({ direct: STACK_POINTER }, { literal: 1 }, STACK_POINTER);
+      .jnS(INCREMENT_STACK_POINTER);
 
     if (variables.length) {
       marieCodeBuilder.comment(

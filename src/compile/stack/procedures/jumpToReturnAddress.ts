@@ -10,6 +10,6 @@ export const declareJumpToReturnAddress = () => {
     .procedure(JUMP_TO_RETURN_ADDRESS)
     .add({ direct: FRAME_POINTER }, { literal: 1 }, NEXT_FRAME)
     .copy({ indirect: NEXT_FRAME }, { direct: ADDRESS })
-    .jumpI(ADDRESS)
-    .jumpI(JUMP_TO_RETURN_ADDRESS);
+    .jumpI(ADDRESS);
+  // .jumpI(JUMP_TO_RETURN_ADDRESS);
 };

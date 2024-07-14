@@ -1,5 +1,6 @@
 import { Expression, FunctionDefinition } from "../../types";
 import { FRAME_POINTER, STACK_POINTER } from "../stack/procedures";
+import { INCREMENT_STACK_POINTER } from "../stack/procedures/incrementStackPointer";
 import { marieCodeBuilder, scopes } from "../state";
 import { ExpressionCompiler } from "./expressionCompiler";
 
@@ -20,8 +21,8 @@ export class FunctionDefinitionCompiler implements ExpressionCompiler {
     }
 
     marieCodeBuilder
-      .comment("Store return address on stack frame")
+      .comment("Store return address on stack")
       .copy({ direct: name }, { indirect: STACK_POINTER })
-      .add({ direct: STACK_POINTER }, { literal: 1 }, STACK_POINTER);
+      .jnS(INCREMENT_STACK_POINTER);
   }
 }

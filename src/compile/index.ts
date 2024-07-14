@@ -1,13 +1,13 @@
 import { Expression } from "../types";
 import { initCallStack } from "./stack/procedures";
 import {
-  PUSH_TO_CALL_STACK,
-  declarePushToCallStack,
-} from "./stack/procedures/pushToCallStack";
+  INCREMENT_FRAME_POINTER,
+  declareIncrementFramePointer,
+} from "./stack/procedures/incrementFramePointer";
 import {
-  POP_FROM_CALL_STACK,
-  declarePopFromCallStack,
-} from "./stack/procedures/popFromCallStack";
+  DECREMENT_FRAME_POINTER,
+  declareDecrementFramePointer,
+} from "./stack/procedures/decrementFramePointer";
 import { initMath } from "./evaluate/procedures";
 import { DIVIDE, declareDivide } from "./evaluate/procedures/divide";
 import { expressions, marieCodeBuilder } from "./state";
@@ -27,6 +27,10 @@ import {
 } from "./stack/procedures/jumpToReturnAddress";
 import { MULTIPLY, declareMultiply } from "./evaluate/procedures/multiply";
 import { CompilerStrategy } from "./compilers/compilerStrategy";
+import {
+  INCREMENT_STACK_POINTER,
+  declareIncrementStackPointer,
+} from "./stack/procedures/incrementStackPointer";
 
 const compileExpression = (expression: Expression) => {
   CompilerStrategy.compile(expression);
@@ -36,7 +40,7 @@ export const compileForMarieAssemblyLanguage = (
   parsedExpressions: Expression[]
 ) => {
   // First command should be a function call to "main"
-  marieCodeBuilder.jnS(PUSH_TO_CALL_STACK).jnS("main").clear().halt();
+  marieCodeBuilder.jnS(INCREMENT_FRAME_POINTER).jnS("main").clear().halt();
 
   expressions.push(...parsedExpressions);
   // Go through each expression
@@ -46,8 +50,9 @@ export const compileForMarieAssemblyLanguage = (
   initCallStack();
   initMath();
   const procedures = {
-    [PUSH_TO_CALL_STACK]: declarePushToCallStack,
-    [POP_FROM_CALL_STACK]: declarePopFromCallStack,
+    [INCREMENT_FRAME_POINTER]: declareIncrementFramePointer,
+    [DECREMENT_FRAME_POINTER]: declareDecrementFramePointer,
+    [INCREMENT_STACK_POINTER]: declareIncrementStackPointer,
     [DECLARE_VARIABLE]: declareDeclareVariable,
     [ASSIGN_ARRAY_VALUES]: declareAssignArrayValues,
     [ASSIGN_NEXT_ARRAY_VALUE]: declareAssignNextArrayValue,

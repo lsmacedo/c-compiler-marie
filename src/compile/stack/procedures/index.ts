@@ -1,23 +1,29 @@
 /*
-Representation for call stack implementation:
+Representation of this call stack implementation:
 
 $StackPointer  --->      Top of Stack
                     ======================
                     |   Local Variables  |
-$FramePointer  ---> |    Return Address  |
+$FramePointer  ---> |    Return Address  | Stack frame 2
                     |     Parameters     |
                     ======================
                     |   Local Variables  |
-$FramePointer  ---> |    Return Address  |
+                    |    Return Address  | Stack frame 1
                     |     Parameters     |
                     ======================
                     |         ...        |
+
+Memory addresses 0x001 to 0x00F are reserved for frame pointers. Each frame
+pointer holds the address of a stack frame.
+
+Memory addresses 0x011 to 0x0FF are reserved for the call stack. The stack
+pointer holds the address of the next free memory address on the stack.
 */
 
 import { marieCodeBuilder } from "../../state";
 
-export const STACK_POINTER = "$StackPointer";
-export const FRAME_POINTER = "$FramePointer";
+export const STACK_POINTER = "_StackPointer";
+export const FRAME_POINTER = "_FramePointer";
 
 const variables = {
   [STACK_POINTER]: 17, // Pointer to the top of call stack
