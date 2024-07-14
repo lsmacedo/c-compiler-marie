@@ -86,7 +86,7 @@ export class Builder {
       if (minuend) {
         this.load(minuend);
       }
-    } else {
+    } else if (subtrahend.indirect) {
       // Persist accumulator value if only one parameter is passed
       if (minuend === undefined) {
         this.store({ direct: "$MINUEND" });
@@ -105,6 +105,14 @@ export class Builder {
       const subtrahendString = subtrahend.indirect
         ? "$SUBTRAHEND"
         : this.varName(subtrahend);
+      this.write(`Subt ${subtrahendString}`);
+    } else {
+      // Load minuend into the accumulator
+      if (minuend !== undefined) {
+        this.load(minuend);
+      }
+      // Subtract
+      const subtrahendString = this.varName(subtrahend);
       this.write(`Subt ${subtrahendString}`);
     }
 
