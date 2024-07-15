@@ -8,9 +8,9 @@ import { initMath } from "./evaluate/procedures";
 import { DIVIDE, declareDivide } from "./evaluate/procedures/divide";
 import { expressions, marieCodeBuilder } from "./state";
 import {
-  DECLARE_VARIABLE,
-  declareDeclareVariable,
-} from "./stack/procedures/declareVariable";
+  ALLOCATE_MEMORY_ADDRESSES,
+  declareAllocateMemoryAddresses,
+} from "./stack/procedures/allocateMemoryAddresses";
 import {
   ASSIGN_ARRAY_VALUES,
   ASSIGN_NEXT_ARRAY_VALUE,
@@ -27,6 +27,14 @@ import {
   INCREMENT_STACK_POINTER,
   declareIncrementStackPointer,
 } from "./stack/procedures/incrementStackPointer";
+import {
+  ALLOCATE_MEMORY,
+  declareAllocateMemory,
+} from "./stack/procedures/allocateMemory";
+import {
+  PUSH_TO_STACK,
+  declarePushToStack,
+} from "./stack/procedures/pushToStack";
 
 const compileExpression = (expression: Expression) => {
   CompilerStrategy.compile(expression);
@@ -45,10 +53,14 @@ export const compileForMarieAssemblyLanguage = (
   // Declare procedures
   initCallStack();
   initMath();
+
+  declareIncrementFramePointer();
+  declareIncrementStackPointer();
+  declarePushToStack();
+
   const procedures = {
-    [INCREMENT_FRAME_POINTER]: declareIncrementFramePointer,
-    [INCREMENT_STACK_POINTER]: declareIncrementStackPointer,
-    [DECLARE_VARIABLE]: declareDeclareVariable,
+    [ALLOCATE_MEMORY]: declareAllocateMemory,
+    [ALLOCATE_MEMORY_ADDRESSES]: declareAllocateMemoryAddresses,
     [ASSIGN_ARRAY_VALUES]: declareAssignArrayValues,
     [ASSIGN_NEXT_ARRAY_VALUE]: declareAssignNextArrayValue,
     [RETURN_TO_CALLER]: declareReturnToCaller,

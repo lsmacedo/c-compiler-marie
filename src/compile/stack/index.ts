@@ -2,11 +2,8 @@ import { Value } from "../../types";
 import { TMP, evaluate } from "../evaluate";
 import { getFunctionDefinition, marieCodeBuilder, scopes } from "../state";
 import { STACK_POINTER } from "./procedures";
-import {
-  ASSIGN_ARRAY_VALUES,
-  ASSIGN_NEXT_ARRAY_VALUE,
-} from "./procedures/assignArrayValues";
-import { DECLARE_VARIABLE } from "./procedures/declareVariable";
+import { ALLOCATE_MEMORY } from "./procedures/allocateMemory";
+import { ALLOCATE_MEMORY_ADDRESSES } from "./procedures/allocateMemoryAddresses";
 import { INCREMENT_FRAME_POINTER } from "./procedures/incrementFramePointer";
 import { INCREMENT_STACK_POINTER } from "./procedures/incrementStackPointer";
 
@@ -52,14 +49,14 @@ const allocateMemoryForVariable = (
   if (!arraySize) {
     marieCodeBuilder
       .comment(`Allocate memory for variable ${name}`)
-      .copy({ direct: STACK_POINTER }, { direct: name })
-      .jnS(INCREMENT_STACK_POINTER);
+      .jnS(ALLOCATE_MEMORY)
+      .store({ direct: name });
     return;
   }
   marieCodeBuilder
     .comment(`Allocate memory for variable ${name}`)
     .load(arraySize ?? { literal: 1 })
-    .jnS(DECLARE_VARIABLE)
+    .jnS(ALLOCATE_MEMORY_ADDRESSES)
     .store({ direct: name });
 };
 
