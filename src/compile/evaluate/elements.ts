@@ -16,10 +16,5 @@ export const evaluateElements = (value: Value) => {
   marieCodeBuilder.copy({ direct: STACK_POINTER }, { direct: result });
   evaluatedValues.forEach((el) => marieCodeBuilder.load(el).jnS(PUSH_TO_STACK));
 
-  marieCodeBuilder
-    .comment(`Skip memory addresses used by initializer list`)
-    .load({ literal: evaluatedValues.length })
-    .jnS(ALLOCATE_MEMORY_ADDRESSES);
-
   return { direct: result };
 };
