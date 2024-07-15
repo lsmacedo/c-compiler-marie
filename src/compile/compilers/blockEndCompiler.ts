@@ -1,6 +1,5 @@
 import { Expression } from "../../types";
-import { JUMP_TO_RETURN_ADDRESS } from "../stack/procedures/jumpToReturnAddress";
-import { DECREMENT_FRAME_POINTER } from "../stack/procedures/decrementFramePointer";
+import { RETURN_TO_CALLER } from "../stack/procedures/returnToCaller";
 import { scopes, marieCodeBuilder } from "../state";
 import { CompilerStrategy } from "./compilerStrategy";
 import { ExpressionCompiler } from "./expressionCompiler";
@@ -8,8 +7,7 @@ import { ExpressionCompiler } from "./expressionCompiler";
 export class BlockEndCompiler implements ExpressionCompiler {
   compile(expression: Expression) {
     if (!scopes[0].blockType) {
-      marieCodeBuilder.jnS(DECREMENT_FRAME_POINTER);
-      marieCodeBuilder.jnS(JUMP_TO_RETURN_ADDRESS);
+      marieCodeBuilder.jnS(RETURN_TO_CALLER);
       scopes.shift();
       return;
     }

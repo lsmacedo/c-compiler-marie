@@ -133,6 +133,7 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
       marieCodeBuilder.comment(
         `Roll back local variables for ${currentFunction.name}`
       );
+      marieCodeBuilder.load({ direct: STACK_POINTER });
       variables.forEach(({ name, arraySize }) => {
         marieCodeBuilder
           .store({ direct: name })

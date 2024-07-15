@@ -4,10 +4,6 @@ import {
   INCREMENT_FRAME_POINTER,
   declareIncrementFramePointer,
 } from "./stack/procedures/incrementFramePointer";
-import {
-  DECREMENT_FRAME_POINTER,
-  declareDecrementFramePointer,
-} from "./stack/procedures/decrementFramePointer";
 import { initMath } from "./evaluate/procedures";
 import { DIVIDE, declareDivide } from "./evaluate/procedures/divide";
 import { expressions, marieCodeBuilder } from "./state";
@@ -22,9 +18,9 @@ import {
   declareAssignNextArrayValue,
 } from "./stack/procedures/assignArrayValues";
 import {
-  JUMP_TO_RETURN_ADDRESS,
-  declareJumpToReturnAddress,
-} from "./stack/procedures/jumpToReturnAddress";
+  RETURN_TO_CALLER,
+  declareReturnToCaller,
+} from "./stack/procedures/returnToCaller";
 import { MULTIPLY, declareMultiply } from "./evaluate/procedures/multiply";
 import { CompilerStrategy } from "./compilers/compilerStrategy";
 import {
@@ -51,12 +47,11 @@ export const compileForMarieAssemblyLanguage = (
   initMath();
   const procedures = {
     [INCREMENT_FRAME_POINTER]: declareIncrementFramePointer,
-    [DECREMENT_FRAME_POINTER]: declareDecrementFramePointer,
     [INCREMENT_STACK_POINTER]: declareIncrementStackPointer,
     [DECLARE_VARIABLE]: declareDeclareVariable,
     [ASSIGN_ARRAY_VALUES]: declareAssignArrayValues,
     [ASSIGN_NEXT_ARRAY_VALUE]: declareAssignNextArrayValue,
-    [JUMP_TO_RETURN_ADDRESS]: declareJumpToReturnAddress,
+    [RETURN_TO_CALLER]: declareReturnToCaller,
     [DIVIDE]: declareDivide,
     [MULTIPLY]: declareMultiply,
   };
