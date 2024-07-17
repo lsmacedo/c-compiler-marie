@@ -8,11 +8,7 @@ export class Builder {
   protected code = "";
   variables = {} as { [name: string]: number };
   procedures = [] as string[];
-
-  constructor(code = "", variables = {}) {
-    this.code = code;
-    this.variables = variables;
-  }
+  readonlyData = [] as number[];
 
   protected write(str: string) {
     this.code += `${str}\n`;
@@ -165,7 +161,7 @@ export class Builder {
   }
   skipIfAc(
     condition: "lessThan" | "equal" | "greaterThan",
-    second: VariableType
+    second?: VariableType
   ) {
     let x: number;
     if (condition === "lessThan") {
@@ -174,6 +170,9 @@ export class Builder {
       x = 400;
     } else {
       x = 800;
+    }
+    if (!second) {
+      return this.write(`Skipcond ${x}`);
     }
     return this.subt(second).write(`Skipcond ${x}`);
   }
@@ -201,6 +200,6 @@ export class Builder {
     const variableDeclarations = variables
       .map((variable) => `${variable}, DEC ${this.variables[variable]}`)
       .join("\n");
-    return `${this.code}\n${variableDeclarations}\n`;
+    return `${this.code.trim()}\n${variableDeclarations}`;
   }
 }

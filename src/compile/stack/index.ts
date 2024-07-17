@@ -10,7 +10,8 @@ import { INCREMENT_STACK_POINTER } from "./procedures/incrementStackPointer";
 export const localVariables = {} as {
   [functionName: string]: {
     name: string;
-    arraySize?: Value;
+    size: Value;
+    isPointer: boolean;
   }[];
 };
 
@@ -24,8 +25,9 @@ export const getVariableDefinition = (variableName: string) => {
 
 export const declareVariable = (
   name: string,
-  arraySize?: Value,
-  skipMemoryAlloc = false
+  size: Value = { literal: 1 },
+  isPointer = false,
+  shouldAllocMemory = true
 ) => {
   const functionName = currentFunctionName();
   if (!localVariables[functionName]) {
@@ -34,19 +36,14 @@ export const declareVariable = (
   if (
     !localVariables[functionName].some((variable) => variable.name === name)
   ) {
-    localVariables[functionName].push({ name, arraySize });
-    if (!skipMemoryAlloc) {
-      allocateMemoryForVariable(name, arraySize);
-    }
+    localVariables[functionName].push({ name, size, isPointer });
   }
-  return name;
-};
 
-const allocateMemoryForVariable = (
-  name: string,
-  arraySize: Value | undefined
-) => {
-  if (!arraySize) {
+  if (!shouldAllocMemory) {
+    return;
+  }
+
+  if (size.literal === 1) {
     marieCodeBuilder
       .comment(`Allocate memory for variable ${name}`)
       .jnS(ALLOCATE_MEMORY)
@@ -55,7 +52,7 @@ const allocateMemoryForVariable = (
   }
   marieCodeBuilder
     .comment(`Allocate memory for variable ${name}`)
-    .load(arraySize ?? { literal: 1 })
+    .load(size)
     .jnS(ALLOCATE_MEMORY_ADDRESSES)
     .store({ direct: name });
 };
@@ -131,10 +128,8 @@ export const performFunctionCall = (functionName: string, params: Value[]) => {
         `Roll back local variables for ${currentFunction.name}`
       );
       marieCodeBuilder.load({ direct: STACK_POINTER });
-      variables.forEach(({ name, arraySize }) => {
-        marieCodeBuilder
-          .store({ direct: name })
-          .add(arraySize ?? { literal: 1 });
+      variables.forEach(({ name, size }) => {
+        marieCodeBuilder.store({ direct: name }).add(size);
       });
       marieCodeBuilder.store({ direct: STACK_POINTER });
     }

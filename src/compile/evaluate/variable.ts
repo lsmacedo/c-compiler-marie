@@ -63,12 +63,12 @@ export const evaluateVariable = (value: Value) => {
     throw new Error("Variable is undefined");
   }
 
-  // If value is an array or is preceded by &, reference its address
-  // instead of value
+  // If value is preceded by & or if it points to an array, reference its
+  // address instead of value
   const variableDefinition = getVariableDefinition(value.variable);
   const returnType =
-    (variableDefinition?.arraySize && !value.arrayPosition) ||
-    value.isAddressOperation
+    value.isAddressOperation ||
+    (variableDefinition?.size.literal > 1 && !value.arrayPosition)
       ? "direct"
       : "indirect";
 
