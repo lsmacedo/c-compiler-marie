@@ -17,6 +17,7 @@ export const counters = {
   blockCount: 0,
   expressionCount: 0,
   tmp: 0,
+  functionCalls: {} as { [functionName: string]: number },
 };
 
 export const getFunctionDefinition = (functionName: string) => {

@@ -32,25 +32,24 @@ export class VariableAssignmentCompiler implements ExpressionCompiler {
       return;
     }
     if (value.elements) {
-      const valueVariable = evaluate(value);
       // If using an initializer list, point array to the evaluated elements
       if (!value.isString) {
         marieCodeBuilder
           .comment(`Initialize variable ${name}`)
-          .copy(valueVariable, { direct: name });
+          .copy(evaluate(value), { direct: name });
         return;
       }
       // If assigning string into a pointer, simply point variable to the string
       if (getVariableDefinition(name)?.isPointer) {
         marieCodeBuilder
           .comment(`Assign value to variable ${name}`)
-          .copy(valueVariable, { indirect: name });
+          .copy(evaluate(value), { indirect: name });
         return;
       }
       // Otherwise, copy string into stack and then reference it
       marieCodeBuilder
         .comment(`Initialize variable ${name}`)
-        .load(valueVariable)
+        .load(evaluate(value))
         .jnS(PUSH_STRING_TO_STACK)
         .store({ direct: name });
       return;

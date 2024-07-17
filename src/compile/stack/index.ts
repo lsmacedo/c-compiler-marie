@@ -36,7 +36,11 @@ export const declareVariable = (
   if (
     !localVariables[functionName].some((variable) => variable.name === name)
   ) {
-    localVariables[functionName].push({ name, size, isPointer });
+    localVariables[functionName].push({
+      name,
+      size,
+      isPointer,
+    });
   }
 
   if (!shouldAllocMemory) {
