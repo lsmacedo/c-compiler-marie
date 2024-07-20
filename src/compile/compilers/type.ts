@@ -1,5 +1,5 @@
 import { Expression } from "../../types";
 
-export interface ExpressionCompiler {
+export interface IExpressionCompiler {
   compile(expression: Expression): void;
 }
