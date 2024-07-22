@@ -1,33 +1,31 @@
 import { parseValue } from "..";
 import { Value } from "../../types";
 
+function parseExpression(expression: string, skip = 0): Value {
+  const result = expression.matchAll(
+    /(?<!\+|-)[+\-\*\/%](?!\+|-)|(?<=\+\+|--)-+/g
+  );
+  const matches = [...result];
+  const opIndex = matches[matches.length - 1 - skip].index || 0;
+  const operator = expression[opIndex];
+
+  try {
+    const firstOperandStr = expression.slice(0, opIndex);
+    const firstOperand = parseValue(firstOperandStr);
+
+    const secondOperandStr = expression.slice(opIndex + 1);
+    const secondOperand = parseValue(secondOperandStr);
+    return { expression: { firstOperand, operator, secondOperand } };
+  } catch (err) {
+    return parseExpression(expression, skip + 1);
+  }
+}
+
 const arithmetic = {
   regex:
     /^\s*(?<firstOperand>[^\s+-]+(?:\(.*?\))|[^\s+-]+)\s*(?<operator>(?!\+\+|\-\-)[+\-\*\/%])\s*(?<secondOperand>.+?(?:\(.*?\))|[^]+?)\s*;?\s*$/,
-  parser: (matches: RegExpMatchArray): Value => {
-    let [_, firstOperandString, operator, secondOperandString] = matches;
-
-    let firstOperand = parseValue(firstOperandString);
-    let secondOperand = parseValue(secondOperandString);
-
-    // Fix expressions order
-    if (
-      secondOperand.expression &&
-      ["*", "/", "%"].includes(operator) &&
-      ["+", "-"].includes(secondOperand.expression.operator)
-    ) {
-      firstOperand = {
-        expression: {
-          firstOperand,
-          operator,
-          secondOperand: secondOperand.expression.firstOperand,
-        },
-      };
-      operator = secondOperand.expression.operator;
-      secondOperand = secondOperand.expression.secondOperand;
-    }
-
-    return { expression: { firstOperand, operator, secondOperand } };
+  stringParser: (str: string): Value => {
+    return parseExpression(str);
   },
 };
 

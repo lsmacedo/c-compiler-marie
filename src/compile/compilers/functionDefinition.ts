@@ -18,7 +18,7 @@ export class FunctionDefinitionCompiler implements IExpressionCompiler {
     const localVariables = this.compilationState.functions[name].variables;
 
     // Set current scope
-    this.compilationState.scope = name;
+    this.compilationState.currFunctionName = name;
 
     // Procedure to calculate offsets for local variables
     this.codegen.procedure(offsetFunctionName(name));

@@ -1,5 +1,4 @@
 import { Service } from "typedi";
-import { CompilationState } from "../../compilationState";
 import { Codegen } from "../../marieCodegen";
 import { Expression, VariableAssignment } from "../../types";
 import { EvalStrategy } from "../eval";

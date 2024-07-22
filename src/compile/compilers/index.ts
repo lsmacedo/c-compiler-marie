@@ -6,6 +6,7 @@ import { FunctionCallCompiler } from "./functionCall";
 import { FunctionDefinitionCompiler } from "./functionDefinition";
 import { ReturnCompiler } from "./return";
 import { VariableAssignmentCompiler } from "./variableAssignment";
+import { BlockCompiler } from "./block";
 
 @Service()
 export class CompilerStrategy {
@@ -13,6 +14,7 @@ export class CompilerStrategy {
     private functionDefinitionCompiler: FunctionDefinitionCompiler,
     private variableAssignmentCompiler: VariableAssignmentCompiler,
     private returnCompiler: ReturnCompiler,
+    private blockCompiler: BlockCompiler,
     private blockEndCompiler: BlockEndCompiler,
     private functionCallCompiler: FunctionCallCompiler
   ) {}
@@ -22,6 +24,7 @@ export class CompilerStrategy {
     variableDeclaration: this.variableAssignmentCompiler,
     variableAssignment: this.variableAssignmentCompiler,
     return: this.returnCompiler,
+    block: this.blockCompiler,
     blockEnd: this.blockEndCompiler,
     functionCall: this.functionCallCompiler,
   };

@@ -41,7 +41,9 @@ export class FunctionCallEval implements IEval {
     }
 
     evaluatedParams.forEach((param) => this.codegen.push(param));
-    this.codegen.jnS(name).jnS(offsetFunctionName(this.compilationState.scope));
+    this.codegen
+      .jnS(name)
+      .jnS(offsetFunctionName(this.compilationState.currFunctionName));
 
     return { direct: RETURN_VALUE };
   }

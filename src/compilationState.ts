@@ -2,9 +2,10 @@ import { Service } from "typedi";
 
 @Service()
 export class CompilationState {
-  public scope: string = "";
+  public currFunctionName: string = "";
   public functions: {
     [scope: string]: {
+      type: string;
       parameters: {
         name: string;
         type: string;
@@ -12,6 +13,15 @@ export class CompilationState {
         isArray: boolean;
       }[];
       variables: { name: string }[];
+      scopes: { type: string }[];
+      scopesCount: number;
+      intermediateVariablesCount: number;
+      earlyReturns: number;
+      earlyReturnsRemaining: number;
     };
   } = {};
+
+  currFunction() {
+    return this.functions[this.currFunctionName];
+  }
 }
