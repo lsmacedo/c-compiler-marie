@@ -6,6 +6,7 @@ import { ExpressionEval } from "./expression";
 import { FunctionCallEval } from "./functionCall";
 import { LiteralEval } from "./literal";
 import { VariableEval } from "./variable";
+import { StringEval } from "./string";
 
 @Service()
 export class EvalStrategy {
@@ -13,11 +14,13 @@ export class EvalStrategy {
     private literalEval: LiteralEval,
     private variableEval: VariableEval,
     private expressionEval: ExpressionEval,
-    private functionCallEval: FunctionCallEval
+    private functionCallEval: FunctionCallEval,
+    private stringEval: StringEval
   ) {
     this.expressionEval.setStrategy(this);
     this.functionCallEval.setStrategy(this);
     this.variableEval.setStrategy(this);
+    this.stringEval.setStrategy(this);
   }
 
   private evals: { [key: string]: IEval } = {
@@ -27,6 +30,7 @@ export class EvalStrategy {
     prefix: this.variableEval,
     expression: this.expressionEval,
     functionCall: this.functionCallEval,
+    elements: this.stringEval,
   };
 
   evaluate(value: Value): VariableType {

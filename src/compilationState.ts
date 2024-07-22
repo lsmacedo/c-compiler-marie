@@ -1,5 +1,5 @@
 import { Service } from "typedi";
-import { Expression } from "./types";
+import { Expression, Value } from "./types";
 
 @Service()
 export class CompilationState {
@@ -13,7 +13,9 @@ export class CompilationState {
         isPointer: boolean;
         isArray: boolean;
       }[];
-      variables: { name: string }[];
+      variables: {
+        [name: string]: { isPointer: boolean; isArray: boolean; size: number };
+      };
       scopes: { label: string; type: string; forStatements?: Expression[] }[];
       scopesCount: number;
       intermediateVariablesCount: number;

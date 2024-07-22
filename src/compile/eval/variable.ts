@@ -4,13 +4,17 @@ import { Value } from "../../types";
 import { IEval } from "./type";
 import { EvalStrategy } from ".";
 import { EXPRESSION_RESULT } from "./expression";
+import { CompilationState } from "../../compilationState";
 
 @Service()
 export class VariableEval implements IEval {
   // Set manually to avoid circular dependency error with TypeDI
   private evalStrategy: EvalStrategy;
 
-  public constructor(private codegen: Codegen) {}
+  public constructor(
+    private codegen: Codegen,
+    private compilationState: CompilationState
+  ) {}
 
   setStrategy(evalStrategy: EvalStrategy) {
     this.evalStrategy = evalStrategy;
@@ -59,7 +63,41 @@ export class VariableEval implements IEval {
   }
 
   private evaluateVariable(value: Value): VariableType {
-    return { indirect: value.variable };
+    if (!value.variable) {
+      throw new Error("Variable is undefined");
+    }
+    // If value is an array or is preceded by &, reference its address
+    // instead of value
+    const variableDefinition =
+      this.compilationState.currFunction().variables[value.variable];
+    const returnType =
+      (variableDefinition?.isArray && !value.arrayPosition) ||
+      value.isAddressOperation
+        ? "direct"
+        : "indirect";
+
+    // If a temporary variable is required, set it into returnVariable
+    let responseVariable = value.variable;
+    if (value.arrayPosition) {
+      responseVariable = EXPRESSION_RESULT;
+      this.codegen.copy(
+        { direct: value.variable },
+        { direct: responseVariable }
+      );
+
+      const positionsToSkip = this.evalStrategy.evaluate(value.arrayPosition);
+      // Load indirect if acessing through pointer
+      const loadType =
+        !variableDefinition || variableDefinition.isPointer
+          ? "indirect"
+          : "direct";
+      this.codegen
+        .load({ [loadType]: responseVariable })
+        .add(positionsToSkip)
+        .store({ direct: responseVariable });
+    }
+
+    return { [returnType]: responseVariable };
   }
 
   evaluate(value: Value): VariableType {

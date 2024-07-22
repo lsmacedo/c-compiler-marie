@@ -46,8 +46,8 @@ export class ExpressionEval implements IEval {
     const a = this.evalStrategy.evaluate(firstOperand);
     const b = this.evalStrategy.evaluate(secondOperand);
     const currFunction = this.compilationState.currFunction();
-    const { type } = currFunction.scopes[currFunction.scopes.length - 1];
-    const endLoopName = `end${type}${currFunction.scopesCount}`;
+    const { label } = currFunction.scopes[currFunction.scopes.length - 1];
+    const endCondName = `end${label}`;
 
     const condition = (() => {
       if (operator === "<" || operator === "<=") {
@@ -67,7 +67,7 @@ export class ExpressionEval implements IEval {
       this.codegen.subt({ literal: 1 });
     }
 
-    this.codegen.skipIfAc(condition, b).jump(endLoopName);
+    this.codegen.skipIfAc(condition, b).jump(endCondName);
   }
 
   evaluate(value: Value): VariableType {

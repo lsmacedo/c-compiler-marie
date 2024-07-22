@@ -15,7 +15,9 @@ export class FunctionDefinitionCompiler implements IExpressionCompiler {
   compile(expression: Expression): void {
     const { name, params } = expression as FunctionDefinition;
 
-    const localVariables = this.compilationState.functions[name].variables;
+    const localVariables = Object.entries(
+      this.compilationState.functions[name].variables
+    );
 
     // Set current scope
     this.compilationState.currFunctionName = name;
@@ -34,8 +36,12 @@ export class FunctionDefinitionCompiler implements IExpressionCompiler {
       this.codegen.load({ direct: BASE_POINTER });
       localVariables.forEach((variable, index) =>
         this.codegen
-          .add({ literal: index === 0 ? 0 : 1 })
-          .store({ direct: variable.name })
+          .store({ direct: variable[0] })
+          .add(
+            index === localVariables.length - 1
+              ? { literal: 0 }
+              : { literal: variable[1].size }
+          )
       );
     }
     this.codegen.jumpI(offsetFunctionName(name));
@@ -48,7 +54,12 @@ export class FunctionDefinitionCompiler implements IExpressionCompiler {
       .copy({ direct: STACK_POINTER }, { direct: BASE_POINTER });
     if (localVariables.length) {
       this.codegen
-        .add({ literal: localVariables.length })
+        .add({
+          literal: localVariables.reduce(
+            (acc, curr) => acc + curr[1].size ?? 1,
+            0
+          ),
+        })
         .store({ direct: STACK_POINTER });
     }
     this.codegen.jnS(offsetFunctionName(name));

@@ -18,6 +18,7 @@ export const STACK_POINTER = "_sp";
 export const RETURN_VALUE = "_rval";
 export const RETURN_ADDRESS = "_radd";
 export const INTERMEDIATE_VARIABLE = "_ivar";
+export const TMP = "_tmp";
 
 const codegen = Container.get(Codegen);
 const compilationState = Container.get(CompilationState);
@@ -39,7 +40,7 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
       compilationState.functions[currFunction] = {
         type: definition.type,
         parameters: definition.params,
-        variables: [],
+        variables: {},
         scopes: [],
         scopesCount: 0,
         intermediateVariablesCount: 0,
@@ -58,17 +59,23 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
     // Map local variables
     if (expression.expressionType === "variableDeclaration") {
       const declaration = expression as VariableAssignment;
-      compilationState.functions[currFunction].variables.push({
-        name: declaration.name,
-      });
+      compilationState.functions[currFunction].variables[declaration.name] = {
+        isPointer: declaration.pointerOperation ?? false,
+        isArray: declaration.isArray ?? false,
+        size:
+          // Array size must be known at compile time
+          declaration.arraySize?.literal ??
+          declaration.value?.elements?.length ??
+          1,
+      };
     }
     if (
       expression.expressionType === "block" &&
       "forStatements" in expression
     ) {
-      compilationState.functions[currFunction].variables.push({
-        name: (expression.forStatements![0] as VariableAssignment).name,
-      });
+      compilationState.functions[currFunction].variables[
+        (expression.forStatements![0] as VariableAssignment).name
+      ] = { isPointer: false, isArray: false, size: 1 };
     }
     // Introduce intermediate variable if expression contains multiple function
     // calls
@@ -115,7 +122,11 @@ function handleExpressionFunctionCalls(
   const count = compilationState.functions[currFunction]
     .intermediateVariablesCount++;
   const variable = `${INTERMEDIATE_VARIABLE}${count}`;
-  compilationState.functions[currFunction].variables.push({ name: variable });
+  compilationState.functions[currFunction].variables[variable] = {
+    isPointer: false,
+    isArray: false,
+    size: 1,
+  };
   // Introduce intermediate variable
   const remaining = functionCalls - 1;
   const [variableDeclarations, value] = introduceIntermediateVariables(

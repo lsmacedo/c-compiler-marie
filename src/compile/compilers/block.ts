@@ -25,7 +25,7 @@ export class BlockCompiler implements IExpressionCompiler {
     const { type, condition, forStatements } = expression as Block;
 
     const currFunction = this.compilationState.currFunction();
-    const label = `${type}${currFunction.scopesCount}`;
+    const label = `${this.compilationState.currFunctionName}${type}${currFunction.scopesCount}`;
 
     currFunction.scopes.push({ label, type, forStatements });
 
