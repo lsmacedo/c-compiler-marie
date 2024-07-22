@@ -86,7 +86,7 @@ export class Codegen {
     // Load value into the accumulator
     this.load({ direct: "_minuend" });
     // Subtract
-    this.write(`Subt _minuend`);
+    this.write(`Subt _subtrahend`);
     return this;
   }
   subtValues(a: VariableType, b: VariableType, persist: boolean) {

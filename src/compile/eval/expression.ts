@@ -67,7 +67,7 @@ export class ExpressionEval implements IEval {
       this.codegen.subt({ literal: 1 });
     }
 
-    this.codegen.skipIfAc(condition, b).jump(endLoopName).clear();
+    this.codegen.skipIfAc(condition, b).jump(endLoopName);
   }
 
   evaluate(value: Value): VariableType {

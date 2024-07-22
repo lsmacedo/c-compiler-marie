@@ -17,12 +17,17 @@ export class CompilerStrategy {
     private blockCompiler: BlockCompiler,
     private blockEndCompiler: BlockEndCompiler,
     private functionCallCompiler: FunctionCallCompiler
-  ) {}
+  ) {
+    this.blockCompiler.setStrategy(this);
+    this.blockEndCompiler.setStrategy(this);
+  }
 
   private compilers: { [key: string]: IExpressionCompiler } = {
     functionDefinition: this.functionDefinitionCompiler,
     variableDeclaration: this.variableAssignmentCompiler,
     variableAssignment: this.variableAssignmentCompiler,
+    postfix: this.variableAssignmentCompiler,
+    prefix: this.variableAssignmentCompiler,
     return: this.returnCompiler,
     block: this.blockCompiler,
     blockEnd: this.blockEndCompiler,

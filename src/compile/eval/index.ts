@@ -17,11 +17,14 @@ export class EvalStrategy {
   ) {
     this.expressionEval.setStrategy(this);
     this.functionCallEval.setStrategy(this);
+    this.variableEval.setStrategy(this);
   }
 
   private evals: { [key: string]: IEval } = {
     literal: this.literalEval,
     variable: this.variableEval,
+    postfix: this.variableEval,
+    prefix: this.variableEval,
     expression: this.expressionEval,
     functionCall: this.functionCallEval,
   };

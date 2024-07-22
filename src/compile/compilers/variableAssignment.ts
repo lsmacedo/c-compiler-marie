@@ -9,6 +9,10 @@ export class VariableAssignmentCompiler implements IExpressionCompiler {
   constructor(private codegen: Codegen, private evalStrategy: EvalStrategy) {}
 
   compile(expression: Expression): void {
+    if ("prefix" in expression || "postfix" in expression) {
+      this.evalStrategy.evaluate(expression);
+      return;
+    }
     const { name, value } = expression as VariableAssignment;
     if (!value) {
       return;

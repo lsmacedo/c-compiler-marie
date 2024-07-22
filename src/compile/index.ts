@@ -1,10 +1,10 @@
 import Container from "typedi";
 import { Codegen } from "../marieCodegen";
 import {
+  Block,
   Expression,
   FunctionDefinition,
   Operation,
-  Return,
   Value,
   VariableAssignment,
 } from "../types";
@@ -60,6 +60,14 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
       const declaration = expression as VariableAssignment;
       compilationState.functions[currFunction].variables.push({
         name: declaration.name,
+      });
+    }
+    if (
+      expression.expressionType === "block" &&
+      "forStatements" in expression
+    ) {
+      compilationState.functions[currFunction].variables.push({
+        name: (expression.forStatements![0] as VariableAssignment).name,
       });
     }
     // Introduce intermediate variable if expression contains multiple function

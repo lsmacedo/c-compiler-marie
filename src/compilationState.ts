@@ -1,4 +1,5 @@
 import { Service } from "typedi";
+import { Expression } from "./types";
 
 @Service()
 export class CompilationState {
@@ -13,7 +14,7 @@ export class CompilationState {
         isArray: boolean;
       }[];
       variables: { name: string }[];
-      scopes: { type: string }[];
+      scopes: { label: string; type: string; forStatements?: Expression[] }[];
       scopesCount: number;
       intermediateVariablesCount: number;
       earlyReturns: number;
