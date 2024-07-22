@@ -1,3 +1,5 @@
+import "reflect-metadata";
+
 import * as fs from "fs";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";

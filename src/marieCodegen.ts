@@ -1,18 +1,19 @@
+import { Service } from "typedi";
+import { POP } from "./compile/procedures/pop";
+import { PUSH } from "./compile/procedures/push";
+
 export type VariableType = {
   literal?: number;
   direct?: string;
   indirect?: string;
 };
 
-export class Builder {
+@Service()
+export class Codegen {
   protected code = "";
   variables = {} as { [name: string]: number };
   procedures = [] as string[];
-
-  constructor(code = "", variables = {}) {
-    this.code = code;
-    this.variables = variables;
-  }
+  readonlyData = [] as number[];
 
   protected write(str: string) {
     this.code += `${str}\n`;
@@ -20,26 +21,18 @@ export class Builder {
   }
 
   protected literal(literal: number) {
-    const varName = `$${literal}`;
+    const varName = `_${literal}`;
     this.declareVariables({ [varName]: literal });
     return { varName, value: { literal: literal } };
   }
 
   protected varName(value: VariableType) {
-    let variable: string;
-    if (value.literal !== undefined) {
-      variable = `$${value.literal}`;
-      if (!this.variables[variable]) {
-        this.declareVariables({ [variable]: value.literal });
-      }
-    } else {
-      variable = value.direct ?? value.indirect ?? "";
-      if (
-        this.variables[variable] === undefined &&
-        !this.procedures.includes(variable)
-      ) {
-        this.declareVariables({ [variable]: 0 });
-      }
+    const variable = value.direct ?? value.indirect ?? `_${value.literal}`;
+    if (
+      this.variables[variable] === undefined &&
+      !this.procedures.includes(variable)
+    ) {
+      this.declareVariables({ [variable]: value.literal ?? 0 });
     }
     return variable;
   }
@@ -50,7 +43,7 @@ export class Builder {
   }
 
   org(position: number) {
-    return this.write(`Org ${position}`);
+    return this.write(`Org ${position}\n`);
   }
   comment(str: string) {
     return this.write(`/ ${str}`);
@@ -64,62 +57,43 @@ export class Builder {
   output() {
     return this.write("Output");
   }
-  add(a: VariableType, b?: VariableType, output?: string) {
-    if (b === undefined) {
-      // Only 'a' is provided, add it to the accumulator
-      this.write(`${a.indirect ? "AddI" : "Add"} ${this.varName(a)}`);
-    } else {
-      // Load 'a' into the accumulator, and then add 'b'
-      this.load(a);
-      this.write(`${b.indirect ? "AddI" : "Add"} ${this.varName(b)}`);
+  add(a: VariableType) {
+    if (a.literal == 0) {
+      return this;
     }
-    if (output) {
-      this.store({ direct: output });
+    this.write(`${a.indirect ? "AddI" : "Add"} ${this.varName(a)}`);
+    return this;
+  }
+  addValues(a: VariableType, b: VariableType, persist: boolean) {
+    this.load(a).add(b);
+    if (persist) {
+      this.store(a);
     }
     return this;
   }
-  subt(a: VariableType, b?: VariableType, output?: string) {
-    let minuend = b !== undefined ? a : undefined;
-    const subtrahend = b ?? a;
-
-    if (subtrahend.literal === 0) {
-      if (minuend) {
-        this.load(minuend);
-      }
-    } else if (subtrahend.indirect) {
-      // Persist accumulator value if only one parameter is passed
-      if (minuend === undefined) {
-        this.store({ direct: "$MINUEND" });
-      }
-      // Persist indirect subtrahend value, since there is no SubtI command
-      if (subtrahend.indirect) {
-        this.copy(subtrahend, { direct: "$SUBTRAHEND" });
-      }
-      // Load minuend into the accumulator
-      if (minuend === undefined) {
-        this.load({ direct: "$MINUEND" });
-      } else {
-        this.load(minuend);
-      }
-      // Subtract
-      const subtrahendString = subtrahend.indirect
-        ? "$SUBTRAHEND"
-        : this.varName(subtrahend);
-      this.write(`Subt ${subtrahendString}`);
-    } else {
-      // Load minuend into the accumulator
-      if (minuend !== undefined) {
-        this.load(minuend);
-      }
-      // Subtract
-      const subtrahendString = this.varName(subtrahend);
-      this.write(`Subt ${subtrahendString}`);
+  subt(a: VariableType) {
+    if (a.literal == 0) {
+      return this;
     }
-
-    if (output) {
-      this.store({ direct: output });
+    if (a.direct || a.literal) {
+      this.write(`Subt ${this.varName(a)}`);
+      return this;
     }
-
+    // Persist accumulator value
+    this.store({ direct: "_minuend" });
+    // Persist indirect value, since there is no SubtI command
+    this.copy(a, { direct: "_subtrahend" });
+    // Load value into the accumulator
+    this.load({ direct: "_minuend" });
+    // Subtract
+    this.write(`Subt _subtrahend`);
+    return this;
+  }
+  subtValues(a: VariableType, b: VariableType, persist: boolean) {
+    this.load(a).subt(b);
+    if (persist) {
+      this.store(a);
+    }
     return this;
   }
   jump(to: string) {
@@ -161,11 +135,11 @@ export class Builder {
     } else {
       x = 800;
     }
-    return this.subt(first, second).write(`Skipcond ${x}`);
+    return this.subtValues(first, second, false).write(`Skipcond ${x}`);
   }
   skipIfAc(
     condition: "lessThan" | "equal" | "greaterThan",
-    second: VariableType
+    second?: VariableType
   ) {
     let x: number;
     if (condition === "lessThan") {
@@ -175,15 +149,27 @@ export class Builder {
     } else {
       x = 800;
     }
+    if (!second) {
+      return this.write(`Skipcond ${x}`);
+    }
     return this.subt(second).write(`Skipcond ${x}`);
   }
 
   procedure(name: string) {
     this.procedures.unshift(name);
-    return this.write(`\n${name}, DEC 0`);
+    return this.write(`\n${name}, HEX 0`);
   }
   label(name: string) {
     this.code += `${name}, `;
+    return this;
+  }
+
+  push(value: VariableType) {
+    this.load(value).jnS(PUSH);
+    return this;
+  }
+  pop(to: VariableType) {
+    this.jnS(POP).store(to);
     return this;
   }
 
@@ -201,6 +187,6 @@ export class Builder {
     const variableDeclarations = variables
       .map((variable) => `${variable}, DEC ${this.variables[variable]}`)
       .join("\n");
-    return `${this.code}\n${variableDeclarations}\n`;
+    return `${this.code.trim()}\n\n${variableDeclarations}`;
   }
 }
