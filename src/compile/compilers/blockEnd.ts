@@ -1,5 +1,10 @@
 import { Service } from "typedi";
-import { BASE_POINTER, RETURN_ADDRESS, STACK_POINTER } from "..";
+import {
+  BASE_POINTER,
+  RETURN_ADDRESS,
+  STACK_POINTER,
+  offsetFunctionName,
+} from "..";
 import { Codegen } from "../../marieCodegen";
 import { Expression } from "../../types";
 import { IExpressionCompiler } from "./type";
@@ -33,14 +38,15 @@ export class BlockEndCompiler implements IExpressionCompiler {
         this.codegen.jump(scope.label);
       }
       this.codegen.label(`end${scope.label}`).clear();
-      currFunction.scopesCount++;
       return;
     }
     // End of function
+    const name = this.compilationState.currFunctionName;
+    const { parameters, variables } = this.compilationState.currFunction();
+    const localVariables = Object.entries(variables);
+
     if (currFunction.earlyReturns > 0) {
-      this.codegen
-        .label(`end${this.compilationState.currFunctionName}`)
-        .clear();
+      this.codegen.label(`end${name}`).clear();
     }
     this.codegen
       .copy({ direct: BASE_POINTER }, { direct: STACK_POINTER })
@@ -52,5 +58,29 @@ export class BlockEndCompiler implements IExpressionCompiler {
         true
       )
       .jumpI(RETURN_ADDRESS);
+
+    // Procedure to calculate offsets for local variables
+    this.codegen.procedure(offsetFunctionName(name));
+    if (parameters.length) {
+      this.codegen.load({ direct: BASE_POINTER });
+      parameters.forEach((param, index) =>
+        this.codegen
+          .subt({ literal: index === 0 ? 3 : 1 })
+          .store({ direct: param.name })
+      );
+    }
+    if (localVariables.length) {
+      this.codegen.load({ direct: BASE_POINTER });
+      localVariables.forEach((variable, index) =>
+        this.codegen
+          .store({ direct: variable[0] })
+          .add(
+            index === localVariables.length - 1
+              ? { literal: 0 }
+              : { literal: variable[1].size }
+          )
+      );
+    }
+    this.codegen.jumpI(offsetFunctionName(name));
   }
 }

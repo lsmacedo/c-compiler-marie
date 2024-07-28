@@ -1,10 +1,10 @@
 import { Service } from "typedi";
-import { Codegen, VariableType } from "../../marieCodegen";
+import { Codegen } from "../../marieCodegen";
 import { Value } from "../../types";
-import { IEval } from "./type";
+import { EvalOp, IEval } from "./type";
 import { EvalStrategy } from ".";
-import { EXPRESSION_RESULT } from "./expression";
 import { CompilationState } from "../../compilationState";
+import { TMP } from "..";
 
 @Service()
 export class VariableEval implements IEval {
@@ -20,93 +20,114 @@ export class VariableEval implements IEval {
     this.evalStrategy = evalStrategy;
   }
 
-  private evaluatePrefix(prefix: Value["prefix"]): VariableType {
+  private evaluatePrefix(prefix: Value["prefix"]) {
     if (!prefix) {
       throw new Error("Prefix is undefined");
     }
 
-    const value = this.evalStrategy.evaluate(prefix.value);
     switch (prefix.operator) {
       case "++":
       case "--":
-        this.codegen
-          .load(value)
-          .add({ literal: prefix.operator === "++" ? 1 : -1 })
-          .store(value);
-        return value;
+        // Load value into AC, increment/decrement and then store
+        this.evalStrategy.evaluate(prefix.value, "load");
+        this.codegen.add({ literal: prefix.operator === "++" ? 1 : -1 });
+        this.evalStrategy.evaluate(prefix.value, "store");
+        return;
       case "-":
-        this.codegen
-          .load({ literal: 0 })
-          .subt(value)
-          .store({ direct: EXPRESSION_RESULT });
-        return { direct: EXPRESSION_RESULT };
+        // Load 0 into AC and then subt value
+        this.codegen.load({ literal: 0 });
+        this.evalStrategy.evaluate(prefix.value, "subt");
+        return;
       case "*":
-        this.codegen.copy(value, { direct: EXPRESSION_RESULT });
-        return { indirect: EXPRESSION_RESULT };
+        // Copy value into temporary variable and then load indirectly
+        this.evalStrategy.evaluate(prefix.value, "load");
+        this.codegen.store({ direct: TMP });
+        this.codegen.load({ indirect: TMP });
+        return;
     }
 
     throw new Error("Invalid prefix type");
   }
 
-  private evaluatePostfix(postfix: Value["postfix"]): VariableType {
+  private evaluatePostfix(postfix: Value["postfix"]) {
     if (!postfix) {
       throw new Error("Postfix is undefined");
     }
+    let ivar: string | undefined = undefined;
+    const requiresMultipleSteps = this.evalStrategy.requiresMultipleSteps(
+      postfix.value
+    );
 
-    const value = this.evalStrategy.evaluate(postfix.value);
-    this.codegen
-      .copy(value, { direct: EXPRESSION_RESULT })
-      .add({ literal: postfix.operator === "++" ? 1 : -1 })
-      .store(value);
+    // Load value into AC
+    // If operation requires multiple steps, store memoize it
+    this.evalStrategy.evaluate(postfix.value, "load");
+    if (requiresMultipleSteps) {
+      ivar = this.evalStrategy.storeIntermediateVariable();
+    }
 
-    return { direct: EXPRESSION_RESULT };
+    // Increment/decrement value and then store
+    this.codegen.add({ literal: postfix.operator === "++" ? 1 : -1 });
+    this.evalStrategy.evaluate(postfix.value, "store");
+
+    // Load original value
+    if (requiresMultipleSteps) {
+      this.codegen.load({ indirect: ivar });
+    } else {
+      this.evalStrategy.evaluate(postfix.value, "load");
+    }
   }
 
-  private evaluateVariable(value: Value): VariableType {
-    if (!value.variable) {
-      throw new Error("Variable is undefined");
+  private loadValue(value: Value, isPointer: boolean, op: EvalOp) {
+    // If variable is not a pointer and there is no array position to skip,
+    // simply load the value into the AC
+    if (!value.arrayPosition) {
+      return this.codegen[op]({ indirect: value.variable });
     }
-    // If value is an array or is preceded by &, reference its address
-    // instead of value
-    const variableDefinition =
-      this.compilationState.currFunction().variables[value.variable];
-    const returnType =
-      (variableDefinition?.isArray && !value.arrayPosition) ||
-      value.isAddressOperation
-        ? "direct"
-        : "indirect";
 
-    // If a temporary variable is required, set it into returnVariable
-    let responseVariable = value.variable;
+    // Copy variable address into temporary variable and then load indirectly
+    this.loadAddress(value, isPointer, "load");
+    this.codegen.store({ direct: TMP });
+    this.codegen.load({ indirect: TMP });
+  }
+
+  private loadAddress(value: Value, isPointer: boolean, op: EvalOp) {
     if (value.arrayPosition) {
-      responseVariable = EXPRESSION_RESULT;
-      this.codegen.copy(
-        { direct: value.variable },
-        { direct: responseVariable }
-      );
+      // Load variable address into AC
+      const loadType = isPointer ? "indirect" : "direct";
+      this.codegen.load({ [loadType]: value.variable });
 
-      const positionsToSkip = this.evalStrategy.evaluate(value.arrayPosition);
-      // Load indirect if acessing through pointer
-      const loadType =
-        !variableDefinition || variableDefinition.isPointer
-          ? "indirect"
-          : "direct";
-      this.codegen
-        .load({ [loadType]: responseVariable })
-        .add(positionsToSkip)
-        .store({ direct: responseVariable });
+      // Increment by amount of memory addresses to skip
+      return this.evalStrategy.evaluate(value.arrayPosition, "add");
     }
-
-    return { [returnType]: responseVariable };
+    return this.codegen[op]({ direct: value.variable });
   }
 
-  evaluate(value: Value): VariableType {
+  requiresMultipleSteps(value: Value): boolean {
+    return !!(value.prefix || value.postfix || value.arrayPosition);
+  }
+
+  evaluate(value: Value, op: EvalOp): void {
     if (value.prefix) {
       return this.evaluatePrefix(value.prefix);
     }
     if (value.postfix) {
       return this.evaluatePostfix(value.postfix);
     }
-    return this.evaluateVariable(value);
+    if (!value.variable) {
+      throw new Error("Variable is undefined");
+    }
+    const variableDefinition =
+      this.compilationState.currFunction().variables[value.variable];
+    const isPointer = !variableDefinition || variableDefinition.isPointer;
+    // If value is an array or is preceded by &, load its address into the AC,
+    // otherwise load its value
+    if (
+      (variableDefinition?.isArray && !value.arrayPosition) ||
+      value.isAddressOperation
+    ) {
+      this.loadAddress(value, isPointer, op);
+    } else {
+      this.loadValue(value, isPointer, op);
+    }
   }
 }

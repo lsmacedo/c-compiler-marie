@@ -1,11 +1,17 @@
 import { Service } from "typedi";
-import { VariableType } from "../../marieCodegen";
+import { Codegen, VariableType } from "../../marieCodegen";
 import { Value } from "../../types";
-import { IEval } from "./type";
+import { EvalOp, IEval } from "./type";
 
 @Service()
 export class LiteralEval implements IEval {
-  evaluate(value: Value): VariableType {
-    return { literal: value.literal };
+  public constructor(private codegen: Codegen) {}
+
+  requiresMultipleSteps(value: Value): boolean {
+    return false;
+  }
+
+  evaluate(value: Value, op: EvalOp): void {
+    this.codegen[op]({ literal: value.literal });
   }
 }

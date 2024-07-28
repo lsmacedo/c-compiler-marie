@@ -22,46 +22,15 @@ export class FunctionDefinitionCompiler implements IExpressionCompiler {
     // Set current scope
     this.compilationState.currFunctionName = name;
 
-    // Procedure to calculate offsets for local variables
-    this.codegen.procedure(offsetFunctionName(name));
-    if (params.length) {
-      this.codegen.load({ direct: BASE_POINTER });
-      params.forEach((param, index) =>
-        this.codegen
-          .subt({ literal: index === 0 ? 3 : 1 })
-          .store({ direct: param.name })
-      );
-    }
-    if (localVariables.length) {
-      this.codegen.load({ direct: BASE_POINTER });
-      localVariables.forEach((variable, index) =>
-        this.codegen
-          .store({ direct: variable[0] })
-          .add(
-            index === localVariables.length - 1
-              ? { literal: 0 }
-              : { literal: variable[1].size }
-          )
-      );
-    }
-    this.codegen.jumpI(offsetFunctionName(name));
-
     // Function definition
     this.codegen
       .procedure(name)
       .push({ direct: name })
       .push({ direct: BASE_POINTER })
       .copy({ direct: STACK_POINTER }, { direct: BASE_POINTER });
-    if (localVariables.length) {
-      this.codegen
-        .add({
-          literal: localVariables.reduce(
-            (acc, curr) => acc + curr[1].size ?? 1,
-            0
-          ),
-        })
-        .store({ direct: STACK_POINTER });
-    }
+    this.codegen
+      .write(`ADD_FUNCTION_${name}_PARAMS_COUNT`)
+      .store({ direct: STACK_POINTER });
     this.codegen.jnS(offsetFunctionName(name));
   }
 }

@@ -20,8 +20,8 @@ export class ReturnCompiler implements IExpressionCompiler {
       return;
     }
     const currFunction = this.compilationState.currFunction();
-    const evaluatedValue = this.evalStrategy.evaluate(value);
-    this.codegen.copy(evaluatedValue, { direct: RETURN_VALUE });
+    this.evalStrategy.evaluate(value, "load");
+    this.codegen.store({ direct: RETURN_VALUE });
     if (currFunction.earlyReturnsRemaining > 0) {
       currFunction.earlyReturnsRemaining--;
       this.codegen.jump(`end${this.compilationState.currFunctionName}`);

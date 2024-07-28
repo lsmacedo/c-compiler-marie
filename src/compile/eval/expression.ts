@@ -1,9 +1,10 @@
 import { Service } from "typedi";
-import { Codegen, VariableType } from "../../marieCodegen";
+import { Codegen } from "../../marieCodegen";
 import { Operation, Value } from "../../types";
-import { IEval } from "./type";
+import { EvalOp, IEval } from "./type";
 import { EvalStrategy } from ".";
 import { CompilationState } from "../../compilationState";
+import { TMP } from "..";
 
 export const EXPRESSION_RESULT = "_eres";
 
@@ -21,76 +22,98 @@ export class ExpressionEval implements IEval {
     this.evalStrategy = evalStrategy;
   }
 
-  private evaluateSum(expression: Operation) {
+  private evaluateSum(expression: Operation, op: EvalOp) {
     const { firstOperand, secondOperand } = expression;
     if (firstOperand.literal && secondOperand.literal) {
-      return { literal: firstOperand.literal + secondOperand.literal };
+      return this.codegen[op]({
+        literal: firstOperand.literal + secondOperand.literal,
+      });
     }
-    const a = this.evalStrategy.evaluate(firstOperand);
-    const b = this.evalStrategy.evaluate(secondOperand);
-    this.codegen.addValues(a, b, false).store({ direct: EXPRESSION_RESULT });
+    // Small optimization: if second operand requires multiple operands but the
+    // first doesn't, prevent first operand from being memoized
+    if (
+      !this.evalStrategy.requiresMultipleSteps(firstOperand) &&
+      this.evalStrategy.requiresMultipleSteps(secondOperand)
+    ) {
+      this.evalStrategy.evaluate(secondOperand, "add", () =>
+        this.evalStrategy.evaluate(firstOperand, "load")
+      );
+      return;
+    }
+    this.evalStrategy.evaluate(firstOperand, "load");
+    this.evalStrategy.evaluate(secondOperand, "add");
   }
 
-  private evaluateSubtraction(expression: Operation) {
+  private evaluateSubtraction(expression: Operation, op: EvalOp) {
     const { firstOperand, secondOperand } = expression;
     if (firstOperand.literal && secondOperand.literal) {
-      return { literal: firstOperand.literal - secondOperand.literal };
+      return this.codegen[op]({
+        literal: firstOperand.literal - secondOperand.literal,
+      });
     }
-    const a = this.evalStrategy.evaluate(firstOperand);
-    const b = this.evalStrategy.evaluate(secondOperand);
-    this.codegen.subtValues(a, b, false).store({ direct: EXPRESSION_RESULT });
+    // Small optimization: if second operand requires multiple operands but the
+    // first doesn't, prevent first operand from being memoized
+    if (
+      !this.evalStrategy.requiresMultipleSteps(firstOperand) &&
+      this.evalStrategy.requiresMultipleSteps(secondOperand)
+    ) {
+      this.evalStrategy.evaluate(secondOperand, "subt", () =>
+        this.evalStrategy.evaluate(firstOperand, "load")
+      );
+      return;
+    }
+    this.evalStrategy.evaluate(firstOperand, "load");
+    this.evalStrategy.evaluate(secondOperand, "subt");
   }
 
   private evaluateLogicalOperation(expression: Operation) {
+    throw new Error("Not yet implemented");
+  }
+
+  evaluateForSkipcond(expression: Operation) {
     const { firstOperand, operator, secondOperand } = expression;
-    const a = this.evalStrategy.evaluate(firstOperand);
-    const b = this.evalStrategy.evaluate(secondOperand);
-    const currFunction = this.compilationState.currFunction();
-    const { label } = currFunction.scopes[currFunction.scopes.length - 1];
-    const endCondName = `end${label}`;
 
-    const condition = (() => {
-      if (operator === "<" || operator === "<=") {
-        return "lessThan";
-      }
-      if (operator === "==" || operator === "!=") {
-        return "equal";
-      }
-      return "greaterThan";
-    })();
+    if (operator === "!=") {
+      throw new Error("Not yet implemented");
+    }
 
-    this.codegen.load(a);
+    this.evalStrategy.evaluate(
+      { expression: { firstOperand, operator: "-", secondOperand } },
+      "load"
+    );
     if (operator === ">=") {
       this.codegen.add({ literal: 1 });
     }
     if (operator === "<=") {
       this.codegen.subt({ literal: 1 });
     }
-
-    this.codegen.skipIfAc(condition, b).jump(endCondName);
   }
 
-  evaluate(value: Value): VariableType {
+  requiresMultipleSteps(value: Value): boolean {
+    return true;
+  }
+
+  evaluate(value: Value, op: EvalOp): void {
     if (!value.expression) {
       throw new Error("Expression is undefined");
     }
     const { operator } = value.expression;
     switch (operator) {
       case "+":
-        this.evaluateSum(value.expression);
+        this.evaluateSum(value.expression, op);
         break;
       case "-":
-        this.evaluateSubtraction(value.expression);
+        this.evaluateSubtraction(value.expression, op);
         break;
-      case "=":
-      case "!=":
+      case "==":
       case ">":
       case "<":
       case ">=":
       case "<=":
         this.evaluateLogicalOperation(value.expression);
         break;
+      case "!=":
+        throw new Error("Logical operator not yet supported");
     }
-    return { direct: EXPRESSION_RESULT };
   }
 }

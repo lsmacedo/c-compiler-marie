@@ -8,6 +8,6 @@ export class FunctionCallCompiler implements IExpressionCompiler {
   public constructor(private evalStrategy: EvalStrategy) {}
 
   compile(expression: Expression): void {
-    this.evalStrategy.evaluate(expression as Value);
+    this.evalStrategy.evaluate(expression as Value, "load");
   }
 }

@@ -15,18 +15,12 @@ export class Codegen {
   procedures = [] as string[];
   readonlyData = [] as number[];
 
-  protected write(str: string) {
+  public write(str: string): Codegen {
     this.code += `${str}\n`;
     return this;
   }
 
-  protected literal(literal: number) {
-    const varName = `_${literal}`;
-    this.declareVariables({ [varName]: literal });
-    return { varName, value: { literal: literal } };
-  }
-
-  protected varName(value: VariableType) {
+  protected varName(value: VariableType): string {
     const variable = value.direct ?? value.indirect ?? `_${value.literal}`;
     if (
       this.variables[variable] === undefined &&
@@ -164,8 +158,11 @@ export class Codegen {
     return this;
   }
 
-  push(value: VariableType) {
-    this.load(value).jnS(PUSH);
+  push(value?: VariableType) {
+    if (value) {
+      this.load(value);
+    }
+    this.jnS(PUSH);
     return this;
   }
   pop(to: VariableType) {

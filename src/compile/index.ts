@@ -1,13 +1,6 @@
 import Container from "typedi";
 import { Codegen } from "../marieCodegen";
-import {
-  Block,
-  Expression,
-  FunctionDefinition,
-  Operation,
-  Value,
-  VariableAssignment,
-} from "../types";
+import { Expression, FunctionDefinition, VariableAssignment } from "../types";
 import { CompilerStrategy } from "./compilers";
 import { declarePop } from "./procedures/pop";
 import { declarePush } from "./procedures/push";
@@ -36,17 +29,12 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
     // Map functions
     if (expression.expressionType === "functionDefinition") {
       const definition = expression as FunctionDefinition;
+      compilationState.defineFunction(
+        definition.name,
+        definition.type,
+        definition.params
+      );
       currFunction = definition.name;
-      compilationState.functions[currFunction] = {
-        type: definition.type,
-        parameters: definition.params,
-        variables: {},
-        scopes: [],
-        scopesCount: 0,
-        intermediateVariablesCount: 0,
-        earlyReturns: 0,
-        earlyReturnsRemaining: 0,
-      };
       scopeLength++;
     }
     // Increment and decrement scope length
@@ -71,20 +59,12 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
     }
     if (
       expression.expressionType === "block" &&
-      "forStatements" in expression
+      "forStatements" in expression &&
+      expression.forStatements
     ) {
       compilationState.functions[currFunction].variables[
         (expression.forStatements![0] as VariableAssignment).name
       ] = { isPointer: false, isArray: false, size: 1 };
-    }
-    // Introduce intermediate variable if expression contains multiple function
-    // calls
-    if ("value" in expression && expression.value?.expression) {
-      const r = handleExpressionFunctionCalls(expression, currFunction);
-      if (r.length) {
-        expressions.splice(i, 1, ...r);
-        i += r.length - 1;
-      }
     }
     // Count amount of early returns for each function
     if (expression.expressionType === "return") {
@@ -102,93 +82,23 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
   declarePush(codegen);
   declarePop(codegen);
 
-  return codegen.getCode();
-}
+  let code = codegen.getCode();
 
-function handleExpressionFunctionCalls(
-  expression: Expression,
-  currFunction: string
-): Expression[] {
-  // TODO: apply same for function call parameters
-  if (!("value" in expression) || !expression.value?.expression) {
-    return [];
-  }
-  // Check if expression contains multiple function calls
-  const functionCalls = functionCallsCount(expression.value.expression);
-  if (functionCalls < 2) {
-    return [];
-  }
-  // Create intermediate variable
-  const count = compilationState.functions[currFunction]
-    .intermediateVariablesCount++;
-  const variable = `${INTERMEDIATE_VARIABLE}${count}`;
-  compilationState.functions[currFunction].variables[variable] = {
-    isPointer: false,
-    isArray: false,
-    size: 1,
-  };
-  // Introduce intermediate variable
-  const remaining = functionCalls - 1;
-  const [variableDeclarations, value] = introduceIntermediateVariables(
-    expression.value,
-    variable,
-    remaining
-  );
-  return [...variableDeclarations, { ...expression, value }];
-}
-
-function functionCallsCount(operation: Operation): number {
-  let count = 0;
-  if (operation.firstOperand.functionCall) {
-    count++;
-  }
-  if (operation.firstOperand.expression) {
-    count += functionCallsCount(operation.firstOperand.expression);
-  }
-  if (operation.secondOperand.functionCall) {
-    count++;
-  }
-  if (operation.secondOperand.expression) {
-    count += functionCallsCount(operation.secondOperand.expression);
-  }
-  return count;
-}
-
-function introduceIntermediateVariables(
-  value: Value,
-  variable: string,
-  remaining: number
-): [Expression[], Value] {
-  if (value.functionCall) {
-    return remaining === 0
-      ? [[], value]
-      : [
-          [
-            {
-              expressionType: "variableDeclaration",
-              name: variable,
-              value: { functionCall: value.functionCall },
-            },
-          ],
-          { variable },
-        ];
-  }
-  if (value.expression) {
-    const { firstOperand, operator, secondOperand } = value.expression;
-    const [declarations1, value1] = introduceIntermediateVariables(
-      firstOperand,
-      variable,
-      remaining
+  // Replace function params count
+  Object.entries(compilationState.functions).forEach(([name, func]) => {
+    const count = Object.entries(func.variables).reduce(
+      (acc, curr) => acc + curr[1].size ?? 1,
+      0
     );
-    const [declarations2, value2] = introduceIntermediateVariables(
-      secondOperand,
-      variable,
-      remaining - declarations1.length
-    );
-    return [
-      [...declarations1, ...declarations2],
-      { expression: { firstOperand: value1, operator, secondOperand: value2 } },
-    ];
-  }
-  return [[], value];
+    if (count > 0) {
+      code = code.replace(`ADD_FUNCTION_${name}_PARAMS_COUNT`, `Add _${count}`);
+      if (!code.includes(`_${count}, DEC ${count}`)) {
+        code += `\n_${count}, DEC ${count}`;
+      }
+    } else {
+      code = code.replace(`ADD_FUNCTION_${name}_PARAMS_COUNT\n`, ``);
+    }
+  });
+
+  return code;
 }

@@ -1,6 +1,6 @@
 import { Service } from "typedi";
 import { Codegen } from "../../marieCodegen";
-import { Expression, VariableAssignment } from "../../types";
+import { Expression, Value, VariableAssignment } from "../../types";
 import { EvalStrategy } from "../eval";
 import { IExpressionCompiler } from "./type";
 import { TMP } from "..";
@@ -14,48 +14,89 @@ export class VariableAssignmentCompiler implements IExpressionCompiler {
     private evalStrategy: EvalStrategy
   ) {}
 
-  compile(expression: Expression): void {
-    if ("prefix" in expression || "postfix" in expression) {
-      this.evalStrategy.evaluate(expression);
+  private useInitializerList(variable: string, value: Value): void {
+    if (!value.elements) {
       return;
     }
-    const { name, arrayPosition, value } = expression as VariableAssignment;
+    const elementsLength = value.elements.length;
+    // Load variable address into the AC and store on TMP
+    this.codegen.copy({ direct: variable }, { direct: TMP });
+    // Iterate through items from initializer list
+    value.elements.forEach((val, index) => {
+      // For each item, load into AC and store indirectly on TMP
+      this.evalStrategy.evaluate(val, "load");
+      this.codegen.store({ indirect: TMP });
+      // Increment TMP
+      if (index < elementsLength - 1) {
+        this.codegen.addValues({ direct: TMP }, { literal: 1 }, true);
+      }
+    });
+  }
+
+  private assignToPointerValue(expression: VariableAssignment): void {
+    const ivar = this.evalStrategy.storeIntermediateVariable();
+    this.codegen.copy({ indirect: expression.name }, { direct: TMP });
+    return this.compileAssignment({
+      ...expression,
+      name: TMP,
+      pointerOperation: false,
+      value: { variable: ivar },
+    });
+  }
+
+  private assignToArrayPosition(expression: VariableAssignment): void {
+    const variableDefinition =
+      this.compilationState.currFunction().variables[expression.name];
+    const isPointer = !variableDefinition || variableDefinition.isPointer;
+    const loadType = isPointer ? "indirect" : "direct";
+    this.codegen.load({ [loadType]: expression.name });
+    this.evalStrategy.evaluate(expression.arrayPosition!, "add");
+    const variable = this.evalStrategy.storeIntermediateVariable();
+    return this.compileAssignment({
+      ...expression,
+      name: variable,
+      arrayPosition: undefined,
+    });
+  }
+
+  private compileAssignment(expression: VariableAssignment): void {
+    const { name, arrayPosition, pointerOperation, type, value } =
+      expression as VariableAssignment;
+
+    // Handle pointer
+    if (pointerOperation && !type) {
+      return this.assignToPointerValue(expression);
+    }
+
+    // Handle array position
+    if (arrayPosition) {
+      return this.assignToArrayPosition(expression);
+    }
+
+    const hasIvar = !!value?.variable && value.variable.startsWith("_ivar");
+    if (hasIvar) {
+      this.evalStrategy.evaluate(value!, "load");
+    }
+    this.codegen.store({ indirect: name });
+  }
+
+  compile(expression: Expression): void {
+    // If expression is a value with a prefix or postfix, evaluate it
+    if ("prefix" in expression || "postfix" in expression) {
+      this.evalStrategy.evaluate(expression, "load");
+      return;
+    }
+    const { name, value } = expression as VariableAssignment;
     if (!value) {
       return;
     }
-    const positionsToSkip = arrayPosition
-      ? this.evalStrategy.evaluate(arrayPosition)
-      : undefined;
-    // Initializer list
+    // Use initializer list
     if (value.elements && !value.isString) {
-      const values = value.elements.map((val) =>
-        this.evalStrategy.evaluate(val)
-      );
-      this.codegen.copy({ direct: name }, { direct: TMP });
-      values.forEach((val, index) => {
-        this.codegen.copy(val, { indirect: TMP });
-        if (index < values.length - 1) {
-          this.codegen.addValues({ direct: TMP }, { literal: 1 }, true);
-        }
-      });
-      return;
+      return this.useInitializerList(name, value);
     }
-    let result = name;
-    // Insert at array position
-    if (positionsToSkip) {
-      // Load indirect if acessing through pointer
-      const variableDefinition =
-        this.compilationState.currFunction().variables[name];
-      const loadType =
-        !variableDefinition || variableDefinition.isPointer
-          ? "indirect"
-          : "direct";
-      result = TMP;
-      this.codegen
-        .copy({ [loadType]: name }, { direct: TMP })
-        .addValues({ direct: result }, positionsToSkip, true);
-    }
-    const evaluatedValue = this.evalStrategy.evaluate(value);
-    this.codegen.copy(evaluatedValue, { indirect: result });
+
+    // Compile variable assignment
+    this.evalStrategy.evaluate(value!, "load");
+    return this.compileAssignment(expression as VariableAssignment);
   }
 }

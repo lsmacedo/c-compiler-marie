@@ -1,9 +1,9 @@
 import { Service } from "typedi";
 import { EvalStrategy } from ".";
 import { CompilationState } from "../../compilationState";
-import { Codegen, VariableType } from "../../marieCodegen";
+import { Codegen } from "../../marieCodegen";
 import { Value } from "../../types";
-import { IEval } from "./type";
+import { EvalOp, IEval } from "./type";
 import { RETURN_VALUE, offsetFunctionName } from "..";
 
 @Service()
@@ -20,31 +20,35 @@ export class FunctionCallEval implements IEval {
     this.evalStrategy = evalStrategy;
   }
 
-  private evaluatePrint(params: VariableType[]): VariableType {
-    this.codegen.load(params[0]).output();
-    return { literal: 0 };
+  private evaluatePrint(params: Value[]): void {
+    this.evalStrategy.evaluate(params[0], "load");
+    this.codegen.output();
   }
 
-  evaluate(value: Value): VariableType {
+  requiresMultipleSteps(value: Value): boolean {
+    return true;
+  }
+
+  evaluate(value: Value, op: EvalOp): void {
     if (!value.functionCall) {
       throw new Error("Function call is undefined");
     }
 
     const { name, params } = value.functionCall;
 
-    const evaluatedParams = params
-      .reverse()
-      .map((param) => this.evalStrategy.evaluate(param));
-
     if (name === "__print") {
-      return this.evaluatePrint(evaluatedParams);
+      return this.evaluatePrint(params);
     }
 
-    evaluatedParams.forEach((param) => this.codegen.push(param));
+    params.reverse().forEach((param) => {
+      this.evalStrategy.evaluate(param, "load");
+      this.codegen.push();
+    });
+
     this.codegen
       .jnS(name)
       .jnS(offsetFunctionName(this.compilationState.currFunctionName));
 
-    return { direct: RETURN_VALUE };
+    this.codegen.load({ direct: RETURN_VALUE });
   }
 }
