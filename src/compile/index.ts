@@ -102,13 +102,10 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
   codegen.org(400).jnS("main").clear().halt();
   expressions.forEach((expression) => compilerStrategy.compile(expression));
 
-  const codeBeforeProcedures = codegen.getCode();
-
   declarePush(codegen);
   declarePop(codegen);
 
   const proceduresToDeclare = {
-    [LOAD_INDIRECT]: declareLoadIndirect,
     [PREFIX_INCREMENT]: declarePrefixIncrement,
     [PREFIX_DECREMENT]: declarePrefixDecrement,
     [POSTFIX_INCREMENT]: declarePostfixIncrement,
@@ -119,11 +116,16 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
     [COMPARE_GTE]: declareCompareGte,
     [COMPARE_LT]: declareCompareLt,
     [COMPARE_LTE]: declareCompareLte,
+    [LOAD_INDIRECT]: declareLoadIndirect,
   };
 
-  Object.entries(proceduresToDeclare)
-    .filter(([procedure]) => codeBeforeProcedures.includes(`JnS ${procedure}`))
-    .forEach(([_, declareProcedure]) => declareProcedure(codegen));
+  Object.entries(proceduresToDeclare).forEach(
+    ([procedure, declareProcedure]) => {
+      if (codegen.getCode().includes(`JnS ${procedure}`)) {
+        declareProcedure(codegen);
+      }
+    }
+  );
 
   return codegen.getCode();
 }

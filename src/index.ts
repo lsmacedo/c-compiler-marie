@@ -63,7 +63,7 @@ code = orderedLibs.map((lib) => lib.libCode).join("\n");
 // Parse code
 const parsedCode = parseCode(code);
 if (args.verbose) {
-  console.log(JSON.stringify(parsedCode));
+  console.log(JSON.stringify(parsedCode, null, 2));
 }
 
 // Generate assembly code

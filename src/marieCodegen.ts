@@ -74,13 +74,13 @@ export class Codegen {
       return this;
     }
     // Persist accumulator value
-    this.store({ direct: "_minuend" });
+    this.store({ direct: "__minuend" });
     // Persist indirect value, since there is no SubtI command
-    this.copy(a, { direct: "_subtrahend" });
+    this.copy(a, { direct: "__subtrahend" });
     // Load value into the accumulator
-    this.load({ direct: "_minuend" });
+    this.load({ direct: "__minuend" });
     // Subtract
-    this.write(`Subt _subtrahend`);
+    this.write(`Subt __subtrahend`);
     return this;
   }
   subtValues(a: VariableType, b: VariableType, persist: boolean) {

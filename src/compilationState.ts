@@ -21,6 +21,7 @@ export class CompilationState {
       intermediateVariablesCount: number;
       earlyReturns: number;
       earlyReturnsRemaining: number;
+      relationalExpressions: number;
     };
   } = {};
 
@@ -38,6 +39,7 @@ export class CompilationState {
       intermediateVariablesCount: 0,
       earlyReturns: 0,
       earlyReturnsRemaining: 0,
+      relationalExpressions: 0,
     };
   }
 

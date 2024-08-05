@@ -28,7 +28,7 @@ export class VariableEval implements IEval {
     }
     const variableDefinition =
       this.compilationState.currFunction().variables[value.variable];
-    return variableDefinition.isArray;
+    return variableDefinition?.isArray ?? false;
   }
 
   private variableIsPointer(value: Value): boolean {
