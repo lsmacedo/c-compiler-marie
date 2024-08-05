@@ -3,7 +3,7 @@ import { Codegen } from "../../marieCodegen";
 import { Expression, Return } from "../../types";
 import { EvalStrategy } from "../eval";
 import { IExpressionCompiler } from "./type";
-import { RETURN_VALUE } from "..";
+import { epilogueFunctionName, RETURN_VALUE } from "../constants";
 import { CompilationState } from "../../compilationState";
 
 @Service()
@@ -24,7 +24,9 @@ export class ReturnCompiler implements IExpressionCompiler {
     this.codegen.store({ direct: RETURN_VALUE });
     if (currFunction.earlyReturnsRemaining > 0) {
       currFunction.earlyReturnsRemaining--;
-      this.codegen.jump(`end${this.compilationState.currFunctionName}`);
+      this.codegen.jnS(
+        epilogueFunctionName(this.compilationState.currFunctionName)
+      );
     }
   }
 }

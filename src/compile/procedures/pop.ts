@@ -1,7 +1,7 @@
-import { STACK_POINTER } from "..";
+import { STACK_POINTER } from "../constants";
 import { Codegen } from "../../marieCodegen";
 
-export const POP = "_pop";
+export const POP = "__pop";
 
 export function declarePop(codegen: Codegen) {
   codegen

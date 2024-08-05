@@ -3,7 +3,7 @@ import { Codegen } from "../../marieCodegen";
 import { Expression, Value, VariableAssignment } from "../../types";
 import { EvalStrategy } from "../eval";
 import { IExpressionCompiler } from "./type";
-import { TMP } from "..";
+import { AUX, INTERMEDIATE_VARIABLE } from "../constants";
 import { CompilationState } from "../../compilationState";
 
 @Service()
@@ -20,25 +20,25 @@ export class VariableAssignmentCompiler implements IExpressionCompiler {
     }
     const elementsLength = value.elements.length;
     // Load variable address into the AC and store on TMP
-    this.codegen.copy({ direct: variable }, { direct: TMP });
+    this.codegen.copy({ direct: variable }, { direct: AUX });
     // Iterate through items from initializer list
     value.elements.forEach((val, index) => {
       // For each item, load into AC and store indirectly on TMP
       this.evalStrategy.evaluate(val, "load");
-      this.codegen.store({ indirect: TMP });
+      this.codegen.store({ indirect: AUX });
       // Increment TMP
       if (index < elementsLength - 1) {
-        this.codegen.addValues({ direct: TMP }, { literal: 1 }, true);
+        this.codegen.addValues({ direct: AUX }, { literal: 1 }, true);
       }
     });
   }
 
   private assignToPointerValue(expression: VariableAssignment): void {
     const ivar = this.evalStrategy.storeIntermediateVariable();
-    this.codegen.copy({ indirect: expression.name }, { direct: TMP });
+    this.codegen.copy({ indirect: expression.name }, { direct: AUX });
     return this.compileAssignment({
       ...expression,
-      name: TMP,
+      name: AUX,
       pointerOperation: false,
       value: { variable: ivar },
     });
@@ -73,7 +73,8 @@ export class VariableAssignmentCompiler implements IExpressionCompiler {
       return this.assignToArrayPosition(expression);
     }
 
-    const hasIvar = !!value?.variable && value.variable.startsWith("_ivar");
+    const hasIvar =
+      !!value?.variable && value.variable.startsWith(INTERMEDIATE_VARIABLE);
     if (hasIvar) {
       this.evalStrategy.evaluate(value!, "load");
     }

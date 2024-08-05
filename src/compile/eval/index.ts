@@ -6,7 +6,7 @@ import { FunctionCallEval } from "./functionCall";
 import { LiteralEval } from "./literal";
 import { VariableEval } from "./variable";
 import { CompilationState } from "../../compilationState";
-import { INTERMEDIATE_VARIABLE, TMP } from "..";
+import { INTERMEDIATE_VARIABLE, AUX } from "../constants";
 import { Codegen } from "../../marieCodegen";
 // import { StringEval } from "./string";
 
@@ -47,7 +47,7 @@ export class EvalStrategy {
     return this.evals[evalType].requiresMultipleSteps(value);
   }
 
-  evaluate(value: Value, op: EvalOp, loadAc?: () => void): void {
+  evaluate(value: Value, op: EvalOp): void {
     const evalType = Object.keys(this.evals).find(
       (key) => value[key as keyof Value] !== undefined
     );
@@ -59,18 +59,17 @@ export class EvalStrategy {
     // variable
     const requiresMultipleSteps =
       this.evals[evalType].requiresMultipleSteps(value);
-    if (op !== "load" && requiresMultipleSteps && loadAc) {
-      this.evals[evalType].evaluate(value, op);
-      this.codegen.store({ direct: TMP });
-      loadAc();
-      this.codegen[op]({ direct: TMP });
-    } else if (op !== "load" && requiresMultipleSteps && !loadAc) {
-      const ivar = this.storeIntermediateVariable();
-      this.evals[evalType].evaluate(value, op);
-      this.codegen.store({ direct: TMP });
-      this.codegen.load({ indirect: ivar })[op]({ direct: TMP });
-    } else {
-      this.evals[evalType].evaluate(value, op);
+    const shouldPersistAc = op !== "load" && requiresMultipleSteps;
+
+    let ivar1: string | undefined = undefined;
+    if (shouldPersistAc) {
+      ivar1 = this.storeIntermediateVariable();
+    }
+
+    this.evals[evalType].evaluate(value, op);
+    if (shouldPersistAc) {
+      const ivar2 = this.storeIntermediateVariable();
+      this.codegen.load({ indirect: ivar1 })[op]({ indirect: ivar2 });
     }
   }
 

@@ -1,24 +1,47 @@
 import Container from "typedi";
 import { Codegen } from "../marieCodegen";
-import { Expression, FunctionDefinition, VariableAssignment } from "../types";
+import {
+  Expression,
+  FunctionDefinition,
+  Value,
+  VariableAssignment,
+} from "../types";
 import { CompilerStrategy } from "./compilers";
 import { declarePop } from "./procedures/pop";
 import { declarePush } from "./procedures/push";
 import { CompilationState } from "../compilationState";
-
-export const BASE_POINTER = "_bp";
-export const STACK_POINTER = "_sp";
-export const RETURN_VALUE = "_rval";
-export const RETURN_ADDRESS = "_radd";
-export const INTERMEDIATE_VARIABLE = "_ivar";
-export const TMP = "_tmp";
+import {
+  COMPARE_EQ,
+  COMPARE_GT,
+  COMPARE_GTE,
+  COMPARE_LT,
+  COMPARE_LTE,
+  COMPARE_NEQ,
+  declareCompareEq,
+  declareCompareGt,
+  declareCompareGte,
+  declareCompareLt,
+  declareCompareLte,
+  declareCompareNeq,
+} from "./procedures/compare";
+import { declareLoadIndirect, LOAD_INDIRECT } from "./procedures/loadIndirect";
+import { INTERMEDIATE_VARIABLE } from "./constants";
+import {
+  declarePrefixDecrement,
+  declarePrefixIncrement,
+  PREFIX_DECREMENT,
+  PREFIX_INCREMENT,
+} from "./procedures/prefix";
+import {
+  declarePostfixDecrement,
+  declarePostfixIncrement,
+  POSTFIX_DECREMENT,
+  POSTFIX_INCREMENT,
+} from "./procedures/postfix";
 
 const codegen = Container.get(Codegen);
 const compilationState = Container.get(CompilationState);
 const compilerStrategy = Container.get(CompilerStrategy);
-
-export const offsetFunctionName = (name: string) =>
-  `_${name}_calculate_offsets`;
 
 export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
   let currFunction = "";
@@ -79,26 +102,28 @@ export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
   codegen.org(400).jnS("main").clear().halt();
   expressions.forEach((expression) => compilerStrategy.compile(expression));
 
+  const codeBeforeProcedures = codegen.getCode();
+
   declarePush(codegen);
   declarePop(codegen);
 
-  let code = codegen.getCode();
+  const proceduresToDeclare = {
+    [LOAD_INDIRECT]: declareLoadIndirect,
+    [PREFIX_INCREMENT]: declarePrefixIncrement,
+    [PREFIX_DECREMENT]: declarePrefixDecrement,
+    [POSTFIX_INCREMENT]: declarePostfixIncrement,
+    [POSTFIX_DECREMENT]: declarePostfixDecrement,
+    [COMPARE_EQ]: declareCompareEq,
+    [COMPARE_NEQ]: declareCompareNeq,
+    [COMPARE_GT]: declareCompareGt,
+    [COMPARE_GTE]: declareCompareGte,
+    [COMPARE_LT]: declareCompareLt,
+    [COMPARE_LTE]: declareCompareLte,
+  };
 
-  // Replace function params count
-  Object.entries(compilationState.functions).forEach(([name, func]) => {
-    const count = Object.entries(func.variables).reduce(
-      (acc, curr) => acc + curr[1].size ?? 1,
-      0
-    );
-    if (count > 0) {
-      code = code.replace(`ADD_FUNCTION_${name}_PARAMS_COUNT`, `Add _${count}`);
-      if (!code.includes(`_${count}, DEC ${count}`)) {
-        code += `\n_${count}, DEC ${count}`;
-      }
-    } else {
-      code = code.replace(`ADD_FUNCTION_${name}_PARAMS_COUNT\n`, ``);
-    }
-  });
+  Object.entries(proceduresToDeclare)
+    .filter(([procedure]) => codeBeforeProcedures.includes(`JnS ${procedure}`))
+    .forEach(([_, declareProcedure]) => declareProcedure(codegen));
 
-  return code;
+  return codegen.getCode();
 }

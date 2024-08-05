@@ -4,7 +4,7 @@ import { CompilationState } from "../../compilationState";
 import { Codegen } from "../../marieCodegen";
 import { Value } from "../../types";
 import { EvalOp, IEval } from "./type";
-import { RETURN_VALUE, offsetFunctionName } from "..";
+import { RETURN_VALUE, offsetFunctionName } from "../constants";
 
 @Service()
 export class FunctionCallEval implements IEval {

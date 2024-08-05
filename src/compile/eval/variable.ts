@@ -4,7 +4,9 @@ import { Value } from "../../types";
 import { EvalOp, IEval } from "./type";
 import { EvalStrategy } from ".";
 import { CompilationState } from "../../compilationState";
-import { TMP } from "..";
+import { LOAD_INDIRECT } from "../procedures/loadIndirect";
+import { PREFIX_DECREMENT, PREFIX_INCREMENT } from "../procedures/prefix";
+import { POSTFIX_DECREMENT, POSTFIX_INCREMENT } from "../procedures/postfix";
 
 @Service()
 export class VariableEval implements IEval {
@@ -20,29 +22,53 @@ export class VariableEval implements IEval {
     this.evalStrategy = evalStrategy;
   }
 
+  private variableIsArray(value: Value): boolean {
+    if (!value.variable) {
+      throw new Error("Variable is undefined");
+    }
+    const variableDefinition =
+      this.compilationState.currFunction().variables[value.variable];
+    return variableDefinition.isArray;
+  }
+
+  private variableIsPointer(value: Value): boolean {
+    if (!value.variable) {
+      throw new Error("Variable is undefined");
+    }
+    const variableDefinition =
+      this.compilationState.currFunction().variables[value.variable];
+    return !variableDefinition || variableDefinition.isPointer;
+  }
+
   private evaluatePrefix(prefix: Value["prefix"]) {
     if (!prefix) {
       throw new Error("Prefix is undefined");
     }
 
     switch (prefix.operator) {
-      case "++":
-      case "--":
-        // Load value into AC, increment/decrement and then store
+      case "*":
         this.evalStrategy.evaluate(prefix.value, "load");
-        this.codegen.add({ literal: prefix.operator === "++" ? 1 : -1 });
-        this.evalStrategy.evaluate(prefix.value, "store");
+        this.codegen.jnS(LOAD_INDIRECT);
+        return;
+      case "++":
+        this.loadAddress(prefix.value, "load");
+        this.codegen.jnS(PREFIX_INCREMENT);
+        return;
+      case "--":
+        this.loadAddress(prefix.value, "load");
+        this.codegen.jnS(PREFIX_DECREMENT);
         return;
       case "-":
-        // Load 0 into AC and then subt value
-        this.codegen.load({ literal: 0 });
-        this.evalStrategy.evaluate(prefix.value, "subt");
-        return;
-      case "*":
-        // Copy value into temporary variable and then load indirectly
-        this.evalStrategy.evaluate(prefix.value, "load");
-        this.codegen.store({ direct: TMP });
-        this.codegen.load({ indirect: TMP });
+        this.evalStrategy.evaluate(
+          {
+            expression: {
+              firstOperand: { literal: 0 },
+              operator: "-",
+              secondOperand: prefix.value,
+            },
+          },
+          "load"
+        );
         return;
     }
 
@@ -53,45 +79,49 @@ export class VariableEval implements IEval {
     if (!postfix) {
       throw new Error("Postfix is undefined");
     }
-    let ivar: string | undefined = undefined;
-    const requiresMultipleSteps = this.evalStrategy.requiresMultipleSteps(
-      postfix.value
-    );
 
-    // Load value into AC
-    // If operation requires multiple steps, store memoize it
-    this.evalStrategy.evaluate(postfix.value, "load");
-    if (requiresMultipleSteps) {
-      ivar = this.evalStrategy.storeIntermediateVariable();
-    }
-
-    // Increment/decrement value and then store
-    this.codegen.add({ literal: postfix.operator === "++" ? 1 : -1 });
-    this.evalStrategy.evaluate(postfix.value, "store");
-
-    // Load original value
-    if (requiresMultipleSteps) {
-      this.codegen.load({ indirect: ivar });
-    } else {
-      this.evalStrategy.evaluate(postfix.value, "load");
+    this.loadAddress(postfix.value, "load");
+    switch (postfix.operator) {
+      case "++":
+        this.codegen.jnS(POSTFIX_INCREMENT);
+        return;
+      case "--":
+        this.codegen.jnS(POSTFIX_DECREMENT);
+        return;
     }
   }
 
-  private loadValue(value: Value, isPointer: boolean, op: EvalOp) {
+  private evaluateVariable(value: Value, op: EvalOp) {
+    if (!value.variable) {
+      throw new Error("Variable is undefined");
+    }
+    const isArray = this.variableIsArray(value);
+    // If value is an array or is preceded by &, load its address into the AC,
+    // otherwise load its value
+    if ((isArray && !value.arrayPosition) || value.isAddressOperation) {
+      this.loadAddress(value, op);
+    } else {
+      this.loadValue(value, op);
+    }
+  }
+
+  private loadValue(value: Value, op: EvalOp): void {
     // If variable is not a pointer and there is no array position to skip,
     // simply load the value into the AC
     if (!value.arrayPosition) {
-      return this.codegen[op]({ indirect: value.variable });
+      this.codegen[op]({ indirect: value.variable });
+      return;
     }
 
     // Copy variable address into temporary variable and then load indirectly
-    this.loadAddress(value, isPointer, "load");
-    this.codegen.store({ direct: TMP });
-    this.codegen.load({ indirect: TMP });
+    this.loadAddress(value, "load");
+    this.codegen.jnS(LOAD_INDIRECT);
   }
 
-  private loadAddress(value: Value, isPointer: boolean, op: EvalOp) {
+  private loadAddress(value: Value, op: EvalOp): void {
     if (value.arrayPosition) {
+      const isPointer = this.variableIsPointer(value);
+
       // Load variable address into AC
       const loadType = isPointer ? "indirect" : "direct";
       this.codegen.load({ [loadType]: value.variable });
@@ -99,7 +129,13 @@ export class VariableEval implements IEval {
       // Increment by amount of memory addresses to skip
       return this.evalStrategy.evaluate(value.arrayPosition, "add");
     }
-    return this.codegen[op]({ direct: value.variable });
+
+    if (value.prefix?.operator === "*") {
+      return this.loadValue(value.prefix.value, op);
+    }
+
+    this.codegen[op]({ direct: value.variable });
+    return;
   }
 
   requiresMultipleSteps(value: Value): boolean {
@@ -113,21 +149,6 @@ export class VariableEval implements IEval {
     if (value.postfix) {
       return this.evaluatePostfix(value.postfix);
     }
-    if (!value.variable) {
-      throw new Error("Variable is undefined");
-    }
-    const variableDefinition =
-      this.compilationState.currFunction().variables[value.variable];
-    const isPointer = !variableDefinition || variableDefinition.isPointer;
-    // If value is an array or is preceded by &, load its address into the AC,
-    // otherwise load its value
-    if (
-      (variableDefinition?.isArray && !value.arrayPosition) ||
-      value.isAddressOperation
-    ) {
-      this.loadAddress(value, isPointer, op);
-    } else {
-      this.loadValue(value, isPointer, op);
-    }
+    this.evaluateVariable(value, op);
   }
 }

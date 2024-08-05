@@ -1,7 +1,6 @@
-import { VariableType } from "../../marieCodegen";
 import { Value } from "../../types";
 
-export type EvalOp = "load" | "add" | "subt" | "push" | "store";
+export type EvalOp = "load" | "add" | "subt" | "push";
 
 export interface IEval {
   requiresMultipleSteps(value: Value): boolean;

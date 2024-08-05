@@ -1,5 +1,5 @@
 import { Service } from "typedi";
-import { BASE_POINTER, STACK_POINTER, offsetFunctionName } from "..";
+import { prologueFunctionName } from "../constants";
 import { Codegen } from "../../marieCodegen";
 import { Expression, FunctionDefinition } from "../../types";
 import { IExpressionCompiler } from "./type";
@@ -23,14 +23,6 @@ export class FunctionDefinitionCompiler implements IExpressionCompiler {
     this.compilationState.currFunctionName = name;
 
     // Function definition
-    this.codegen
-      .procedure(name)
-      .push({ direct: name })
-      .push({ direct: BASE_POINTER })
-      .copy({ direct: STACK_POINTER }, { direct: BASE_POINTER });
-    this.codegen
-      .write(`ADD_FUNCTION_${name}_PARAMS_COUNT`)
-      .store({ direct: STACK_POINTER });
-    this.codegen.jnS(offsetFunctionName(name));
+    this.codegen.procedure(name).jnS(prologueFunctionName(name));
   }
 }

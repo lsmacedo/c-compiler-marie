@@ -3,8 +3,11 @@ import {
   BASE_POINTER,
   RETURN_ADDRESS,
   STACK_POINTER,
+  epilogueFunctionName,
   offsetFunctionName,
-} from "..";
+  prologueFunctionName,
+  scopeEndLabelName,
+} from "../constants";
 import { Codegen } from "../../marieCodegen";
 import { Expression } from "../../types";
 import { IExpressionCompiler } from "./type";
@@ -28,6 +31,7 @@ export class BlockEndCompiler implements IExpressionCompiler {
   compile(expression: Expression): void {
     const currFunction = this.compilationState.currFunction();
     const scope = currFunction.scopes.pop();
+
     // End of conditional or loop
     if (scope) {
       if (scope.type === "for") {
@@ -37,18 +41,31 @@ export class BlockEndCompiler implements IExpressionCompiler {
       if (scope.type === "while") {
         this.codegen.jump(scope.label);
       }
-      this.codegen.label(`end${scope.label}`).clear();
+      this.codegen.label(scopeEndLabelName(scope.label)).clear();
       return;
     }
+
     // End of function
     const name = this.compilationState.currFunctionName;
     const { parameters, variables } = this.compilationState.currFunction();
     const localVariables = Object.entries(variables);
+    this.codegen.jnS(epilogueFunctionName(name));
 
-    if (currFunction.earlyReturns > 0) {
-      this.codegen.label(`end${name}`).clear();
-    }
+    // Prologue procedure
+    const stackSize = localVariables.reduce((acc, cur) => acc + cur[1].size, 0);
     this.codegen
+      .procedure(prologueFunctionName(name))
+      .push({ direct: name })
+      .push({ direct: BASE_POINTER })
+      .copy({ direct: STACK_POINTER }, { direct: BASE_POINTER })
+      .add({ literal: stackSize })
+      .store({ direct: STACK_POINTER })
+      .jnS(offsetFunctionName(name))
+      .jumpI(prologueFunctionName(name));
+
+    // Epilogue procedure
+    this.codegen
+      .procedure(epilogueFunctionName(name))
       .copy({ direct: BASE_POINTER }, { direct: STACK_POINTER })
       .pop({ direct: BASE_POINTER })
       .pop({ direct: RETURN_ADDRESS })
@@ -63,7 +80,7 @@ export class BlockEndCompiler implements IExpressionCompiler {
     this.codegen.procedure(offsetFunctionName(name));
     if (parameters.length) {
       this.codegen.load({ direct: BASE_POINTER });
-      parameters.forEach((param, index) =>
+      parameters.forEach((param, index, unused) =>
         this.codegen
           .subt({ literal: index === 0 ? 3 : 1 })
           .store({ direct: param.name })
