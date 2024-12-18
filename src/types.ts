@@ -5,6 +5,7 @@ export type Value = {
   variable?: string;
   arrayPosition?: Value;
   isAddressOperation?: boolean;
+  isString?: boolean;
   expression?: Operation;
   prefix?: {
     operator: string;

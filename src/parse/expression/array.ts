@@ -10,7 +10,7 @@ const array = {
       : [...string.split(""), "\0"].map((char) => ({
           literal: char.charCodeAt(0),
         }));
-    return { elements };
+    return { elements, isString: string !== undefined };
   },
 };
 

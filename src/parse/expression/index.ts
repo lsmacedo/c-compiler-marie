@@ -20,7 +20,8 @@ export const expressionTypes: {
   [key: string]: {
     regex: RegExp;
     condition?: (value: string) => boolean;
-    parser: (matches: RegExpMatchArray) => any;
+    parser?: (matches: RegExpMatchArray) => any;
+    stringParser?: (str: string) => any;
   };
 } = {
   typedef,

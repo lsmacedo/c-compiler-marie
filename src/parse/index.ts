@@ -21,52 +21,52 @@ export const parseValue = (value: string): Value => {
   // Type
   if (type.condition!(value)) {
     const { regex, parser } = type;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   // Literal value (e.g. 5)
   if (literal.regex.test(value)) {
     const { regex, parser } = literal;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   // Array value (e.g. { 1, 2, 3 })
   if (array.regex.test(value)) {
     const { regex, parser } = array;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   // Variable (e.g. x)
   if (variable.regex.test(value)) {
     const { regex, parser } = variable;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   // Function call (e.g. func(x, 10))
   if (functionCall.regex.test(value)) {
     const { regex, parser } = functionCall;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   // Logical operator (e.g. x || y)
   if (logical.regex.test(value)) {
     const { regex, parser } = logical;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   // Relational expression (e.g. x == 5)
   if (relational.regex.test(value)) {
     const { regex, parser } = relational;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   // Arithmetic expression (e.g. x + 1)
   if (arithmetic.regex.test(value)) {
-    const { regex, parser } = arithmetic;
-    return parser(value.match(regex)!);
+    const { stringParser } = arithmetic;
+    return stringParser?.(value);
   }
   // Prefix to a value (e.g. ++x or ++*x or *++x)
   if (prefix.regex.test(value)) {
     const { regex, parser } = prefix;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   // Postfix to a value (e.g. x++)
   if (postfix.regex.test(value)) {
     const { regex, parser } = postfix;
-    return parser(value.match(regex)!);
+    return parser?.(value.match(regex)!);
   }
   throw new Error(`Unable to parse value ${value}`);
 };
@@ -89,7 +89,7 @@ export const parseExpression = (line: string): Expression => {
     throw new Error(`Error parsing expression: ${line}`);
   }
   // Parse expression
-  const parsed = expressionTypes[expressionType].parser(matches);
+  const parsed = expressionTypes[expressionType].parser?.(matches);
   return { expressionType, ...parsed };
 };
 

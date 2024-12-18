@@ -1,68 +1,131 @@
-import { Expression } from "../types";
-import { initCallStack } from "./stack/procedures";
+import Container from "typedi";
+import { Codegen } from "../marieCodegen";
 import {
-  PUSH_TO_CALL_STACK,
-  declarePushToCallStack,
-} from "./stack/procedures/pushToCallStack";
+  Expression,
+  FunctionDefinition,
+  Value,
+  VariableAssignment,
+} from "../types";
+import { CompilerStrategy } from "./compilers";
+import { declarePop } from "./procedures/pop";
+import { declarePush } from "./procedures/push";
+import { CompilationState } from "../compilationState";
 import {
-  POP_FROM_CALL_STACK,
-  declarePopFromCallStack,
-} from "./stack/procedures/popFromCallStack";
-import { initMath } from "./evaluate/procedures";
-import { DIVIDE, declareDivide } from "./evaluate/procedures/divide";
-import { expressions, marieCodeBuilder } from "./state";
+  COMPARE_EQ,
+  COMPARE_GT,
+  COMPARE_GTE,
+  COMPARE_LT,
+  COMPARE_LTE,
+  COMPARE_NEQ,
+  declareCompareEq,
+  declareCompareGt,
+  declareCompareGte,
+  declareCompareLt,
+  declareCompareLte,
+  declareCompareNeq,
+} from "./procedures/compare";
+import { declareLoadIndirect, LOAD_INDIRECT } from "./procedures/loadIndirect";
+import { INTERMEDIATE_VARIABLE } from "./constants";
 import {
-  DECLARE_VARIABLE,
-  declareDeclareVariable,
-} from "./stack/procedures/declareVariable";
+  declarePrefixDecrement,
+  declarePrefixIncrement,
+  PREFIX_DECREMENT,
+  PREFIX_INCREMENT,
+} from "./procedures/prefix";
 import {
-  ASSIGN_ARRAY_VALUES,
-  ASSIGN_NEXT_ARRAY_VALUE,
-  declareAssignArrayValues,
-  declareAssignNextArrayValue,
-} from "./stack/procedures/assignArrayValues";
-import {
-  JUMP_TO_RETURN_ADDRESS,
-  declareJumpToReturnAddress,
-} from "./stack/procedures/jumpToReturnAddress";
-import { MULTIPLY, declareMultiply } from "./evaluate/procedures/multiply";
-import { CompilerStrategy } from "./compilers/compilerStrategy";
+  declarePostfixDecrement,
+  declarePostfixIncrement,
+  POSTFIX_DECREMENT,
+  POSTFIX_INCREMENT,
+} from "./procedures/postfix";
 
-const compileExpression = (expression: Expression) => {
-  CompilerStrategy.compile(expression);
-};
+const codegen = Container.get(Codegen);
+const compilationState = Container.get(CompilationState);
+const compilerStrategy = Container.get(CompilerStrategy);
 
-export const compileForMarieAssemblyLanguage = (
-  parsedExpressions: Expression[]
-) => {
-  // First command should be a function call to "main"
-  marieCodeBuilder.jnS(PUSH_TO_CALL_STACK).jnS("main").clear().halt();
+export function compileForMarieAssemblyLanguage(expressions: Expression[]) {
+  let currFunction = "";
+  let scopeLength = 0;
+  for (let i = 0; i < expressions.length; i++) {
+    const expression = expressions[i];
 
-  expressions.push(...parsedExpressions);
-  // Go through each expression
-  expressions.forEach((line) => compileExpression(line));
-
-  // Declare procedures
-  initCallStack();
-  initMath();
-  const procedures = {
-    [PUSH_TO_CALL_STACK]: declarePushToCallStack,
-    [POP_FROM_CALL_STACK]: declarePopFromCallStack,
-    [DECLARE_VARIABLE]: declareDeclareVariable,
-    [ASSIGN_ARRAY_VALUES]: declareAssignArrayValues,
-    [ASSIGN_NEXT_ARRAY_VALUE]: declareAssignNextArrayValue,
-    [JUMP_TO_RETURN_ADDRESS]: declareJumpToReturnAddress,
-    [DIVIDE]: declareDivide,
-    [MULTIPLY]: declareMultiply,
-  };
-  const codeBeforeProcedures = marieCodeBuilder.getCode();
-  Object.entries(procedures).forEach(([procedureName, declareProcedure]) => {
-    if (codeBeforeProcedures.includes(`JnS ${procedureName}`)) {
-      declareProcedure();
+    // Map functions
+    if (expression.expressionType === "functionDefinition") {
+      const definition = expression as FunctionDefinition;
+      compilationState.defineFunction(
+        definition.name,
+        definition.type,
+        definition.params
+      );
+      currFunction = definition.name;
+      scopeLength++;
     }
-  });
+    // Increment and decrement scope length
+    if (expression.expressionType === "block") {
+      scopeLength++;
+    }
+    if (expression.expressionType === "blockEnd") {
+      scopeLength--;
+    }
+    // Map local variables
+    if (expression.expressionType === "variableDeclaration") {
+      const declaration = expression as VariableAssignment;
+      compilationState.functions[currFunction].variables[declaration.name] = {
+        isPointer: declaration.pointerOperation ?? false,
+        isArray: declaration.isArray ?? false,
+        size:
+          // Array size must be known at compile time
+          declaration.arraySize?.literal ??
+          declaration.value?.elements?.length ??
+          1,
+      };
+    }
+    if (
+      expression.expressionType === "block" &&
+      "forStatements" in expression &&
+      expression.forStatements
+    ) {
+      compilationState.functions[currFunction].variables[
+        (expression.forStatements![0] as VariableAssignment).name
+      ] = { isPointer: false, isArray: false, size: 1 };
+    }
+    // Count amount of early returns for each function
+    if (expression.expressionType === "return") {
+      const nextExpression = expressions[i + 1];
+      if (nextExpression.expressionType !== "blockEnd" || scopeLength > 1) {
+        compilationState.functions[currFunction].earlyReturns++;
+        compilationState.functions[currFunction].earlyReturnsRemaining++;
+      }
+    }
+  }
 
-  const code = marieCodeBuilder.getCode();
-  const instructionsCount = marieCodeBuilder.getInstructionsCount();
-  return `ORG ${(4096 - instructionsCount).toString(16)}\n${code}`;
-};
+  codegen.org(400).jnS("main").clear().halt();
+  expressions.forEach((expression) => compilerStrategy.compile(expression));
+
+  declarePush(codegen);
+  declarePop(codegen);
+
+  const proceduresToDeclare = {
+    [PREFIX_INCREMENT]: declarePrefixIncrement,
+    [PREFIX_DECREMENT]: declarePrefixDecrement,
+    [POSTFIX_INCREMENT]: declarePostfixIncrement,
+    [POSTFIX_DECREMENT]: declarePostfixDecrement,
+    [COMPARE_EQ]: declareCompareEq,
+    [COMPARE_NEQ]: declareCompareNeq,
+    [COMPARE_GT]: declareCompareGt,
+    [COMPARE_GTE]: declareCompareGte,
+    [COMPARE_LT]: declareCompareLt,
+    [COMPARE_LTE]: declareCompareLte,
+    [LOAD_INDIRECT]: declareLoadIndirect,
+  };
+
+  Object.entries(proceduresToDeclare).forEach(
+    ([procedure, declareProcedure]) => {
+      if (codegen.getCode().includes(`JnS ${procedure}`)) {
+        declareProcedure(codegen);
+      }
+    }
+  );
+
+  return codegen.getCode();
+}
